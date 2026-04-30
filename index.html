@@ -1,226 +1,398 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pong Game</title>
-    <style>
-        body {
-            background-color: #1a1a1a;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            font-family: 'Arial', sans-serif;
-        }
-        canvas {
-            border: 2px solid #ffffff;
-            background-color: #000000;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>오늘의 사주 — Javis</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+:root {
+  --gold:#c9a84c; --gold-l:#f0d080; --gold-d:#8b5e1a;
+  --bg:#07040f; --card:rgba(255,255,255,0.045);
+  --border:rgba(201,168,76,0.22); --text:rgba(232,224,208,0.9);
+  --text-dim:rgba(232,224,208,0.45);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+
+/* ── 배경 ── */
+.bg-stars{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
+.bg-stars::before,.bg-stars::after{content:'';position:absolute;inset:0;}
+.bg-stars::before{
+  background:radial-gradient(ellipse at 15% 40%,rgba(100,60,200,.18) 0%,transparent 55%),
+             radial-gradient(ellipse at 85% 15%,rgba(60,30,140,.22) 0%,transparent 50%),
+             radial-gradient(ellipse at 50% 95%,rgba(160,100,20,.12) 0%,transparent 45%);
+}
+.bg-stars::after{
+  background-image:
+    radial-gradient(1px 1px at 8% 12%,rgba(255,255,255,.85) 0%,transparent 100%),
+    radial-gradient(1px 1px at 22% 35%,rgba(255,255,220,.7) 0%,transparent 100%),
+    radial-gradient(1.5px 1.5px at 38% 8%,rgba(255,255,255,.9) 0%,transparent 100%),
+    radial-gradient(1px 1px at 52% 55%,rgba(255,255,255,.6) 0%,transparent 100%),
+    radial-gradient(1px 1px at 67% 22%,rgba(255,255,220,.75) 0%,transparent 100%),
+    radial-gradient(1.5px 1.5px at 83% 70%,rgba(255,255,255,.8) 0%,transparent 100%),
+    radial-gradient(1px 1px at 12% 78%,rgba(255,255,255,.55) 0%,transparent 100%),
+    radial-gradient(1px 1px at 91% 42%,rgba(255,255,220,.7) 0%,transparent 100%),
+    radial-gradient(1px 1px at 33% 88%,rgba(255,255,255,.5) 0%,transparent 100%),
+    radial-gradient(1.5px 1.5px at 58% 92%,rgba(255,255,220,.65) 0%,transparent 100%),
+    radial-gradient(1px 1px at 75% 5%,rgba(255,255,255,.6) 0%,transparent 100%),
+    radial-gradient(1px 1px at 4% 52%,rgba(255,255,255,.4) 0%,transparent 100%),
+    radial-gradient(1px 1px at 46% 68%,rgba(255,255,220,.55) 0%,transparent 100%),
+    radial-gradient(1px 1px at 96% 88%,rgba(255,255,255,.45) 0%,transparent 100%);
+}
+
+/* ── 모달 ── */
+.modal-wrap{position:fixed;inset:0;z-index:200;background:rgba(4,2,10,.95);display:flex;align-items:center;justify-content:center;padding:20px;}
+.modal-wrap.hide{display:none;}
+.modal{
+  background:linear-gradient(150deg,#0e0820,#160b2c,#0e0820);
+  border:1px solid var(--border);border-radius:28px;
+  padding:36px 28px;max-width:400px;width:100%;
+  box-shadow:0 0 80px rgba(100,60,200,.25),0 0 160px rgba(201,168,76,.08);
+  text-align:center;
+}
+.modal .m-icon{font-size:60px;display:block;margin-bottom:14px;animation:pulse 3s ease-in-out infinite;}
+@keyframes pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.08);}}
+.modal h2{font-family:'Noto Serif KR',serif;font-size:21px;color:var(--gold-l);margin-bottom:8px;}
+.modal .m-desc{font-size:13px;color:var(--text-dim);line-height:1.7;margin-bottom:26px;}
+.field{margin-bottom:14px;text-align:left;}
+.field label{display:block;font-size:11px;color:var(--gold);letter-spacing:.8px;margin-bottom:5px;text-transform:uppercase;}
+.field input,.field select{
+  width:100%;background:rgba(255,255,255,.06);border:1px solid var(--border);
+  border-radius:12px;padding:12px 15px;color:var(--text);
+  font-size:15px;font-family:'Noto Sans KR',sans-serif;outline:none;
+  transition:border-color .2s,box-shadow .2s;
+  -webkit-appearance:none;appearance:none;
+}
+.field input:focus,.field select:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(201,168,76,.12);}
+.field select option{background:#160b2c;}
+.btn-go{
+  width:100%;margin-top:6px;padding:14px;
+  background:linear-gradient(135deg,var(--gold-d),var(--gold),var(--gold-d));
+  background-size:200% 100%;border:none;border-radius:14px;
+  color:#07040f;font-weight:700;font-size:15px;
+  font-family:'Noto Sans KR',sans-serif;cursor:pointer;
+  transition:background-position .4s,transform .1s,box-shadow .2s;
+  box-shadow:0 4px 20px rgba(201,168,76,.3);
+}
+.btn-go:hover{background-position:100% 0;box-shadow:0 6px 28px rgba(201,168,76,.45);}
+.btn-go:active{transform:scale(.98);}
+</style>
 </head>
 <body>
-    <canvas id="pongCanvas" width="600" height="400"></canvas>
-    <div id="scoreBoard" style="color: white; margin-top: 20px; font-size: 24px;">
-        Player 1: <span id="score1">0</span> | Player 2: <span id="score2">0</span>
+<div class="bg-stars"></div>
+
+<!-- 모달 -->
+<div class="modal-wrap" id="modal">
+  <div class="modal">
+    <span class="m-icon">🔮</span>
+    <h2>오늘의 사주풀이</h2>
+    <p class="m-desc">생년월일과 태어난 시간을 입력하면<br>매일 자동으로 사주를 풀어드려요.<br>한 번만 입력하면 기억합니다.</p>
+    <div class="field"><label>이름</label><input type="text" id="i-name" placeholder="이름" value="legendart"></div>
+    <div class="field"><label>생년월일</label><input type="date" id="i-birth"></div>
+    <div class="field"><label>태어난 시</label>
+      <select id="i-hour">
+        <option value="0">자시 (子) 23:00 – 01:00</option>
+        <option value="1">축시 (丑) 01:00 – 03:00</option>
+        <option value="2">인시 (寅) 03:00 – 05:00</option>
+        <option value="3">묘시 (卯) 05:00 – 07:00</option>
+        <option value="4">진시 (辰) 07:00 – 09:00</option>
+        <option value="5">사시 (巳) 09:00 – 11:00</option>
+        <option value="6">오시 (午) 11:00 – 13:00</option>
+        <option value="7">미시 (未) 13:00 – 15:00</option>
+        <option value="8">신시 (申) 15:00 – 17:00</option>
+        <option value="9">유시 (酉) 17:00 – 19:00</option>
+        <option value="10">술시 (戌) 19:00 – 21:00</option>
+        <option value="11">해시 (亥) 21:00 – 23:00</option>
+      </select>
     </div>
-    <div id="mobileControls" style="color: white; margin-top: 10px;">
-        Touch/Drag to control paddles.
+    <button class="btn-go" onclick="saveAndRender()">✨ 나의 사주 보기</button>
+  </div>
+</div>
+
+<!-- 메인 앱 -->
+<div id="app" style="display:none;position:relative;z-index:1;max-width:480px;margin:0 auto;padding:20px 16px 60px;">
+
+  <!-- 헤더 -->
+  <div style="text-align:center;padding:28px 0 22px;">
+    <div id="hdr-animal" style="font-size:64px;display:block;margin-bottom:10px;"></div>
+    <h1 style="font-family:'Noto Serif KR',serif;font-size:24px;font-weight:700;
+      background:linear-gradient(135deg,var(--gold),var(--gold-l),var(--gold));
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px;">오늘의 사주</h1>
+    <div style="font-size:12px;color:var(--text-dim);letter-spacing:1.5px;">JAVIS · 사주팔자 분석</div>
+  </div>
+
+  <!-- 날짜 배지 -->
+  <div id="date-badge" style="display:flex;align-items:center;justify-content:center;gap:8px;
+    background:var(--card);border:1px solid var(--border);border-radius:50px;
+    padding:9px 20px;margin:0 auto 20px;width:fit-content;
+    font-size:13px;color:var(--gold-l);"></div>
+
+  <!-- 프로필 -->
+  <div style="display:flex;align-items:center;gap:12px;background:var(--card);
+    border:1px solid var(--border);border-radius:18px;padding:14px 16px;margin-bottom:18px;">
+    <div id="p-avatar" style="font-size:38px;"></div>
+    <div style="flex:1;">
+      <div id="p-name" style="font-size:16px;font-weight:500;color:var(--gold-l);"></div>
+      <div id="p-birth" style="font-size:12px;color:var(--text-dim);margin-top:3px;"></div>
     </div>
-    <script>
-        const canvas = document.getElementById('pongCanvas');
-        const ctx = canvas.getContext('2d');
-        const score1Element = document.getElementById('score1');
-        const score2Element = document.getElementById('score2');
-        const mobileControls = document.getElementById('mobileControls');
+    <button onclick="reset()" style="font-size:11px;color:var(--text-dim);background:none;
+      border:1px solid var(--border);border-radius:8px;padding:5px 10px;cursor:pointer;
+      font-family:'Noto Sans KR',sans-serif;">재설정</button>
+  </div>
 
-        const CANVAS_WIDTH = canvas.width;
-        const CANVAS_HEIGHT = canvas.height;
+  <!-- 기운 배너 -->
+  <div style="width:100%;height:150px;border-radius:22px;overflow:hidden;margin-bottom:18px;
+    position:relative;background:linear-gradient(135deg,#12082a,#1e0e40,#12082a);
+    border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
+    <div style="position:absolute;font-size:80px;opacity:.07;letter-spacing:16px;
+      font-family:'Noto Serif KR',serif;user-select:none;">天地人</div>
+    <div style="position:relative;text-align:center;">
+      <div id="banner-emoji" style="font-size:54px;display:block;"></div>
+      <div id="banner-text" style="font-family:'Noto Serif KR',serif;font-size:14px;
+        color:var(--gold-l);margin-top:6px;"></div>
+    </div>
+    <!-- 별 장식 -->
+    <div style="position:absolute;top:12px;left:18px;font-size:10px;color:var(--gold);opacity:.6;">✦</div>
+    <div style="position:absolute;top:18px;right:22px;font-size:8px;color:var(--gold);opacity:.4;">✦</div>
+    <div style="position:absolute;bottom:14px;left:28px;font-size:7px;color:var(--gold);opacity:.35;">✦</div>
+    <div style="position:absolute;bottom:16px;right:16px;font-size:11px;color:var(--gold);opacity:.5;">✦</div>
+  </div>
 
-        // Game Variables
-        let player1Score = 0;
-        let player2Score = 0;
+  <!-- 사주 4기둥 -->
+  <div style="font-size:11px;color:var(--gold);letter-spacing:1px;margin-bottom:10px;">🏛 사주팔자 (四柱八字)</div>
+  <div id="pillars" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;"></div>
 
-        // Paddle Setup
-        const paddle1 = {
-            x: 10,
-            y: CANVAS_HEIGHT / 2 - 50,
-            width: 10,
-            height: 100,
-            dy: 0 // Movement direction
-        };
-        const paddle2 = {
-            x: CANVAS_WIDTH - 20,
-            y: CANVAS_HEIGHT / 2 - 50,
-            width: 10,
-            height: 100,
-            dy: 0 // Movement direction
-        };
+</div>
 
-        // Ball Setup
-        let ball = {
-            x: CANVAS_WIDTH / 2,
-            y: CANVAS_HEIGHT / 2,
-            radius: 10,
-            speed: 5,
-            dx: 5, // Initial horizontal speed
-            dy: 5  // Initial vertical speed
-        };
+  <!-- 오행 분석 -->
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:20px;padding:20px;margin-bottom:14px;">
+    <div style="font-size:11px;color:var(--gold);letter-spacing:1px;margin-bottom:14px;">🌿 오행 분석 (五行)</div>
+    <div id="elements" style="display:flex;flex-direction:column;gap:11px;"></div>
+  </div>
 
-        // Input Handling (Keyboard for Desktop)
-        const keysPressed = {};
+  <!-- 오늘의 운세 -->
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:20px;padding:20px;margin-bottom:14px;">
+    <div style="font-size:11px;color:var(--gold);letter-spacing:1px;margin-bottom:14px;">✨ 오늘의 운세</div>
+    <div id="fortune" style="font-family:'Noto Serif KR',serif;font-size:14px;line-height:2;color:var(--text);"></div>
+  </div>
 
-        document.addEventListener('keydown', (e) => {
-            keysPressed[e.key] = true;
-        });
+  <!-- 점수 카드 -->
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:20px;padding:20px;margin-bottom:14px;">
+    <div style="font-size:11px;color:var(--gold);letter-spacing:1px;margin-bottom:14px;">📊 오늘의 운세 점수</div>
+    <div id="scores" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;text-align:center;"></div>
+  </div>
 
-        document.addEventListener('keyup', (e) => {
-            keysPressed[e.key] = false;
-        });
+  <!-- 오늘의 팁 -->
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:20px;padding:20px;margin-bottom:14px;">
+    <div style="font-size:11px;color:var(--gold);letter-spacing:1px;margin-bottom:14px;">💡 오늘의 가이드</div>
+    <div id="tips" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;"></div>
+  </div>
 
-        // Mobile Touch Input Handling
-        let touchStartY = null;
-        let touchStartX = null;
+  <!-- 푸터 -->
+  <div style="text-align:center;padding-top:10px;">
+    <div style="font-size:11px;color:var(--text-dim);">☯ Javis · 오늘도 좋은 하루 되세요</div>
+  </div>
 
-        canvas.addEventListener('touchstart', (e) => {
-            e.preventDefault(); // Prevent default scroll/zoom
-            touchStartX = e.touches[0].clientX;
-            touchStartY = e.touches[0].clientY;
-        }, { passive: false });
+</div><!-- /app -->
 
-        canvas.addEventListener('touchmove', (e) => {
-            e.preventDefault(); // Prevent default scroll/zoom
-            const touchX = e.touches[0].clientX;
-            const touchY = e.touches[0].clientY;
-            
-            const rect = canvas.getBoundingClientRect();
-            const relativeX = touchX - rect.left;
-            const relativeY = touchY - rect.top;
+<script>
+// ── 데이터 ──
+const STEMS      = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
+const BRANCHES   = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+const STEM_KR    = ['갑','을','병','정','무','기','경','신','임','계'];
+const BRANCH_KR  = ['자','축','인','묘','진','사','오','미','신','유','술','해'];
+const ANIMALS    = ['🐭','🐮','🐯','🐰','🐉','🐍','🐴','🐑','🐵','🐔','🐶','🐷'];
+const ANIMAL_KR  = ['쥐','소','호랑이','토끼','용','뱀','말','양','원숭이','닭','개','돼지'];
+const STEM_ELEM  = ['목','목','화','화','토','토','금','금','수','수'];
+const BRANCH_ELEM= ['수','토','목','목','토','화','화','토','금','금','토','수'];
+const ELEM_COLOR = {'목':'#4caf7d','화':'#e05c5c','토':'#c9a84c','금':'#a0c4e8','수':'#6680cc'};
+const ELEM_EMOJI = {'목':'🌿','화':'🔥','토':'🌍','금':'⚡','수':'💧'};
+const DAYS_KR    = ['일','월','화','수','목','금','토'];
 
-            // Determine which paddle is being touched based on X position
-            if (relativeX < CANVAS_WIDTH / 2) {
-                // Touch left half -> Paddle 1
-                paddle1.y = relativeY - 50; // Center the touch relative to the paddle area
-            } else {
-                // Touch right half -> Paddle 2
-                paddle2.y = relativeY - 50;
-            }
-            
-        }, { passive: false });
+// ── 사주 계산 ──
+function yearPillar(y) {
+  return { s:((y-4)%10+10)%10, b:((y-4)%12+12)%12 };
+}
+function monthPillar(y, m) {
+  const ys = ((y-4)%10+10)%10;
+  const base = (ys%5)*2;
+  return { s:(base+m-1)%10, b:(m+1)%12 };
+}
+function dayPillar(date) {
+  const base = new Date(1900,0,31);
+  const diff = Math.floor((date-base)/86400000);
+  return { s:((diff%10)+10)%10, b:((diff%12)+12)%12 };
+}
+function hourPillar(dayStem, hb) {
+  return { s:((dayStem%5)*2+Math.floor(hb/2))%10, b:hb%12 };
+}
+function buildSaju(birthDate, hb) {
+  const y=birthDate.getFullYear(), m=birthDate.getMonth()+1;
+  const yp=yearPillar(y), mp=monthPillar(y,m), dp=dayPillar(birthDate), hp=hourPillar(dp.s,hb);
+  return [
+    {label:'연주 (年柱)',...yp},
+    {label:'월주 (月柱)',...mp},
+    {label:'일주 (日柱)',...dp},
+    {label:'시주 (時柱)',...hp},
+  ];
+}
+function todaySaju() {
+  const now=new Date();
+  const hb=Math.floor(((now.getHours()+1)%24)/2);
+  return buildSaju(now,hb);
+}
+function elemCount(pillars) {
+  const c={'목':0,'화':0,'토':0,'금':0,'수':0};
+  pillars.forEach(p=>{c[STEM_ELEM[p.s]]++;c[BRANCH_ELEM[p.b]]++;});
+  return c;
+}
 
-        canvas.addEventListener('touchend', (e) => {
-            touchStartX = null;
-            touchStartY = null;
-        }, { passive: false });
+// ── 시드 난수 ──
+function mkRand(seed) {
+  let s=seed>>>0;
+  return ()=>{s=(s*1664525+1013904223)>>>0;return s/0xffffffff;};
+}
+function todaySeed(birthMs) {
+  const d=new Date();
+  return (d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate())*31+(birthMs%9973);
+}
 
-        function updatePaddles() {
-            // Reset paddle positions based on drag/touch logic to ensure smooth operation
-            // For mobile, the touchmove handler directly sets the Y position.
-            
-            // Keyboard movement (Desktop fallback)
-            if (keysPressed['w']) {
-                paddle1.y -= 5;
-            }
-            if (keysPressed['s']) {
-                paddle1.y += 5;
-            }
-            if (keysPressed['ArrowUp']) {
-                paddle2.y -= 5;
-            }
-            if (keysPressed['ArrowDown']) {
-                paddle2.y += 5;
-            }
+// ── 운세 생성 ──
+function makeFortune(today, birth, rand) {
+  const dp=today[2];
+  const elem=STEM_ELEM[dp.s];
+  const branch=dp.b;
+  const animal=ANIMAL_KR[branch];
+  const animalEmoji=ANIMALS[branch];
+  const stemStr=STEMS[dp.s]+BRANCHES[dp.b];
 
-            // Keep paddle 1 within bounds
-            paddle1.y = Math.max(0, Math.min(paddle1.y, CANVAS_HEIGHT - paddle1.height));
+  const texts=[
+    `오늘은 <b style="color:var(--gold-l)">${elem} ${ELEM_EMOJI[elem]}</b>의 기운이 강하게 흐릅니다. ${animalEmoji} ${animal}의 날인 <b style="color:var(--gold-l)">${stemStr}일</b>, 집중과 꾸준함이 빛을 발합니다. 오전 중 중요한 결정을 내리는 것이 유리하며, 오후엔 새로운 인연이 찾아올 수 있습니다. 평소 미루던 일을 오늘 시작해 보세요.`,
+    `<b style="color:var(--gold-l)">${stemStr}일</b>, 하늘의 기운은 변화와 유연함을 요구합니다 ${animalEmoji}. 고집보다 경청이 더 좋은 결과를 가져옵니다. <b style="color:var(--gold-l)">${elem} ${ELEM_EMOJI[elem]}</b>의 흐름을 타면 재물운도 살짝 열립니다. 작은 저축이나 투자를 시작하기 좋은 날입니다.`,
+    `오늘 <b style="color:var(--gold-l)">${stemStr}일</b>은 인간관계에서 따뜻한 에너지가 넘칩니다 ${animalEmoji}. 오늘 만나는 사람이 귀인이 될 수 있으니 새로운 만남에 열린 마음을 가지세요. <b style="color:var(--gold-l)">${elem}</b>의 기운으로 창의적인 아이디어가 샘솟는 날, 메모를 꼭 해두세요.`,
+  ];
 
-            // Keep paddle 2 within bounds
-            paddle2.y = Math.max(0, Math.min(paddle2.y, CANVAS_HEIGHT - paddle2.height));
-        }
+  const o=Math.floor(rand()*2)+3, l=Math.floor(rand()*2)+3, m2=Math.floor(rand()*2)+3, h=Math.floor(rand()*2)+3;
+  const colors=['초록색','빨간색','노란색','흰색','검은색','파란색','보라색'];
+  const dirs=['동쪽','서쪽','남쪽','북쪽'];
+  const times=['오전 일찍','오전 중','오후 이른','오후 늦게','저녁'];
 
-        function updateBall() {
-            ball.x += ball.dx;
-            ball.y += ball.dy;
+  return {
+    text: texts[Math.floor(rand()*texts.length)],
+    scores:[{l:'종합운',v:o},{l:'애정운',v:l},{l:'재물운',v:m2}],
+    tips:[
+      {e:'🎨',l:'오늘의 색',v:{목:'초록색',화:'빨간색',토:'노란색',금:'흰색',수:'검은색'}[elem]},
+      {e:'🔢',l:'행운 숫자',v:String(Math.floor(rand()*9)+1)},
+      {e:'🧭',l:'행운 방향',v:dirs[Math.floor(rand()*dirs.length)]},
+    ],
+    animal: animalEmoji,
+    animalName: `${animal}의 날 · ${stemStr}`,
+  };
+}
 
-            // Wall Collision (Top/Bottom)
-            if (ball.y + ball.radius > CANVAS_HEIGHT || ball.y - ball.radius < 0) {
-                ball.dy = -ball.dy;
-            }
+// ── 렌더 ──
+function render(user) {
+  const {name, birth, hour} = user;
+  const bd = new Date(birth);
+  const hb = parseInt(hour);
+  const today = todaySaju();
+  const birthSaju = buildSaju(bd, hb);
+  const rand = mkRand(todaySeed(bd.getTime()));
+  const fortune = makeFortune(today, birthSaju, rand);
+  const elems = elemCount(today);
+  const maxE = Math.max(...Object.values(elems));
+  const now = new Date();
 
-            // Paddle Collision Detection
-            // Paddle 1 collision
-            if (ball.x - ball.radius < paddle1.x + paddle1.width && ball.y > paddle1.y && ball.y < paddle1.y + paddle1.height) {
-                ball.dx = -ball.dx;
-                ball.dx *= -1.05; // Increase speed slightly
-            }
-            // Paddle 2 collision
-            if (ball.x + ball.radius > paddle2.x && ball.y > paddle2.y && ball.y < paddle2.y + paddle2.height) {
-                ball.dx = -ball.dx;
-                ball.dx *= -1.05; // Increase speed slightly
-            }
-        }
+  // 날짜
+  document.getElementById('date-badge').innerHTML =
+    `📅 ${now.getFullYear()}년 ${now.getMonth()+1}월 ${now.getDate()}일 (${DAYS_KR[now.getDay()]}요일)`;
 
-        function checkScore() {
-            // Ball goes off the left side (Player 2 scores)
-            if (ball.x < 0) {
-                player2Score++;
-                score2Element.textContent = player2Score;
-                resetBall();
-            }
-            // Ball goes off the right side (Player 1 scores)
-            if (ball.x > CANVAS_WIDTH) {
-                player1Score++;
-                score1Element.textContent = player1Score;
-                resetBall();
-            }
-        }
+  // 헤더 동물
+  document.getElementById('hdr-animal').textContent = fortune.animal;
 
-        function resetBall() {
-            ball.x = CANVAS_WIDTH / 2;
-            ball.y = CANVAS_HEIGHT / 2;
-            // Reverse direction of the ball slightly after a score for a bit of pause
-            ball.dx = -ball.dx * (Math.random() > 0.5 ? 1 : -1);
-            ball.dy = Math.abs(Math.random() * 5) - 2.5; // New vertical speed
-            ball.speed = 5; // Reset base speed
-        }
+  // 프로필
+  document.getElementById('p-avatar').textContent = fortune.animal;
+  document.getElementById('p-name').textContent = name;
+  document.getElementById('p-birth').textContent =
+    `${bd.getFullYear()}년 ${bd.getMonth()+1}월 ${bd.getDate()}일생`;
 
-        function draw() {
-            // Clear canvas
-            ctx.fillStyle = '#1a1a1a'; // Dark background color
-            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+  // 배너
+  document.getElementById('banner-emoji').textContent = fortune.animal;
+  document.getElementById('banner-text').textContent = fortune.animalName;
 
-            // Draw Center Line (Optional but nice)
-            ctx.strokeStyle = '#333333';
-            ctx.beginPath();
-            ctx.setLineDash([10, 10]);
-            ctx.moveTo(CANVAS_WIDTH / 2, 0);
-            ctx.lineTo(CANVAS_WIDTH / 2, CANVAS_HEIGHT);
-            ctx.stroke();
-            ctx.setLineDash([]); // Reset line dash
+  // 4기둥
+  document.getElementById('pillars').innerHTML = today.map(p=>`
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;
+      padding:14px 8px;text-align:center;transition:transform .2s;"
+      onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
+      <div style="font-size:10px;color:var(--gold);letter-spacing:.4px;margin-bottom:8px;">${p.label}</div>
+      <span style="font-family:'Noto Serif KR',serif;font-size:26px;font-weight:700;
+        color:var(--gold-l);display:block;line-height:1;">${STEMS[p.s]}</span>
+      <span style="font-family:'Noto Serif KR',serif;font-size:22px;color:var(--text);
+        display:block;margin-top:3px;">${BRANCHES[p.b]}</span>
+      <div style="font-size:10px;color:var(--text-dim);margin-top:5px;">${STEM_KR[p.s]}${BRANCH_KR[p.b]}</div>
+    </div>`).join('');
 
-            // Draw Paddles
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(paddle1.x, paddle1.y, paddle1.width, paddle1.height);
-            ctx.fillRect(paddle2.x, paddle2.y, paddle2.width, paddle2.height);
+  // 오행
+  document.getElementById('elements').innerHTML = Object.entries(elems).map(([e,c])=>`
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="font-size:13px;width:36px;color:var(--text-dim);">${ELEM_EMOJI[e]} ${e}</div>
+      <div style="flex:1;height:6px;background:rgba(255,255,255,.07);border-radius:99px;overflow:hidden;">
+        <div style="height:100%;width:${maxE?(c/maxE*100):0}%;background:${ELEM_COLOR[e]};
+          border-radius:99px;transition:width 1s ease;"></div>
+      </div>
+      <div style="font-size:12px;color:var(--text-dim);width:16px;text-align:right;">${c}</div>
+    </div>`).join('');
 
-            // Draw Ball
-            ctx.beginPath();
-            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
-            ctx.fillStyle = '#ff0000';
-            ctx.fill();
-        }
+  // 운세
+  document.getElementById('fortune').innerHTML = fortune.text;
 
-        function gameLoop() {
-            updatePaddles();
-            updateBall();
-            checkScore();
-            draw();
-            requestAnimationFrame(gameLoop);
-        }
+  // 점수
+  document.getElementById('scores').innerHTML = fortune.scores.map(s=>`
+    <div>
+      <div style="font-size:11px;color:var(--text-dim);margin-bottom:5px;">${s.l}</div>
+      <div style="font-size:17px;letter-spacing:2px;">${'⭐'.repeat(s.v)}${'☆'.repeat(5-s.v)}</div>
+      <div style="font-size:12px;color:var(--gold);margin-top:3px;">${s.v} / 5</div>
+    </div>`).join('');
 
-        // Start the game loop
-        gameLoop();
-    </script>
+  // 팁
+  document.getElementById('tips').innerHTML = fortune.tips.map(t=>`
+    <div style="background:rgba(255,255,255,.03);border:1px solid var(--border);
+      border-radius:14px;padding:14px 10px;text-align:center;">
+      <span style="font-size:22px;display:block;margin-bottom:4px;">${t.e}</span>
+      <div style="font-size:10px;color:var(--text-dim);">${t.l}</div>
+      <div style="font-size:13px;color:var(--gold-l);font-weight:500;margin-top:3px;">${t.v}</div>
+    </div>`).join('');
+
+  document.getElementById('modal').classList.add('hide');
+  document.getElementById('app').style.display='block';
+}
+
+function saveAndRender() {
+  const name  = (document.getElementById('i-name').value||'').trim()||'legendart';
+  const birth = document.getElementById('i-birth').value;
+  const hour  = document.getElementById('i-hour').value;
+  if (!birth) { alert('생년월일을 입력해주세요 🙏'); return; }
+  const user = {name, birth, hour};
+  try { localStorage.setItem('saju_user', JSON.stringify(user)); } catch(e){}
+  render(user);
+}
+
+function reset() {
+  try { localStorage.removeItem('saju_user'); } catch(e){}
+  document.getElementById('modal').classList.remove('hide');
+  document.getElementById('app').style.display='none';
+}
+
+// ── 시작 ──
+(function(){
+  try {
+    const s = localStorage.getItem('saju_user');
+    if (s) { render(JSON.parse(s)); return; }
+  } catch(e){}
+  document.getElementById('modal').classList.remove('hide');
+})();
+</script>
 </body>
 </html>
