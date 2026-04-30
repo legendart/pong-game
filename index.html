@@ -189,6 +189,30 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
     <div id="tips" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;"></div>
   </div>
 
+  <!-- 별자리 운세 -->
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:20px;padding:20px;margin-bottom:14px;">
+    <div style="font-size:11px;color:var(--gold);letter-spacing:1px;margin-bottom:16px;">⭐ 별자리 운세</div>
+    <!-- 별자리 헤더 -->
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;
+      background:linear-gradient(135deg,rgba(100,60,200,.15),rgba(201,168,76,.08));
+      border:1px solid var(--border);border-radius:16px;padding:14px 16px;">
+      <div id="z-symbol" style="font-size:44px;line-height:1;"></div>
+      <div>
+        <div id="z-name" style="font-family:'Noto Serif KR',serif;font-size:18px;color:var(--gold-l);font-weight:700;"></div>
+        <div id="z-period" style="font-size:11px;color:var(--text-dim);margin-top:3px;"></div>
+        <div id="z-elem" style="font-size:11px;color:var(--gold);margin-top:2px;"></div>
+      </div>
+    </div>
+    <!-- 별자리 운세 텍스트 -->
+    <div id="z-fortune" style="font-family:'Noto Serif KR',serif;font-size:14px;line-height:2;color:var(--text);margin-bottom:16px;"></div>
+    <!-- 별자리 점수 -->
+    <div id="z-scores" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center;margin-bottom:16px;"></div>
+    <!-- 별자리 팁 -->
+    <div style="background:rgba(255,255,255,.025);border-radius:12px;padding:12px 14px;">
+      <div id="z-tip" style="font-size:13px;color:var(--text-dim);line-height:1.8;"></div>
+    </div>
+  </div>
+
   <!-- 푸터 -->
   <div style="text-align:center;padding-top:10px;">
     <div style="font-size:11px;color:var(--text-dim);">☯ Javis · 오늘도 좋은 하루 되세요</div>
@@ -199,6 +223,64 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 <script>
 // ── 데이터 ──
 const STEMS      = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
+// ── 별자리 ──
+const ZODIAC=[
+  {name:'염소자리',symbol:'♑',period:'12/22–1/19',elem:'흙',ruling:'토성',keyword:'인내·성실',from:[12,22],to:[1,19]},
+  {name:'물병자리',symbol:'♒',period:'1/20–2/18',elem:'공기',ruling:'천왕성',keyword:'혁신·자유',from:[1,20],to:[2,18]},
+  {name:'물고기자리',symbol:'♓',period:'2/19–3/20',elem:'물',ruling:'해왕성',keyword:'공감·직관',from:[2,19],to:[3,20]},
+  {name:'양자리',symbol:'♈',period:'3/21–4/19',elem:'불',ruling:'화성',keyword:'도전·열정',from:[3,21],to:[4,19]},
+  {name:'황소자리',symbol:'♉',period:'4/20–5/20',elem:'흙',ruling:'금성',keyword:'안정·감각',from:[4,20],to:[5,20]},
+  {name:'쌍둥이자리',symbol:'♊',period:'5/21–6/20',elem:'공기',ruling:'수성',keyword:'소통·변화',from:[5,21],to:[6,20]},
+  {name:'게자리',symbol:'♋',period:'6/21–7/22',elem:'물',ruling:'달',keyword:'감성·보호',from:[6,21],to:[7,22]},
+  {name:'사자자리',symbol:'♌',period:'7/23–8/22',elem:'불',ruling:'태양',keyword:'창의·리더',from:[7,23],to:[8,22]},
+  {name:'처녀자리',symbol:'♍',period:'8/23–9/22',elem:'흙',ruling:'수성',keyword:'분석·완벽',from:[8,23],to:[9,22]},
+  {name:'천칭자리',symbol:'♎',period:'9/23–10/22',elem:'공기',ruling:'금성',keyword:'균형·조화',from:[9,23],to:[10,22]},
+  {name:'전갈자리',symbol:'♏',period:'10/23–11/21',elem:'물',ruling:'명왕성',keyword:'깊이·변혁',from:[10,23],to:[11,21]},
+  {name:'사수자리',symbol:'♐',period:'11/22–12/21',elem:'불',ruling:'목성',keyword:'자유·탐험',from:[11,22],to:[12,21]},
+];
+const ZF={
+  '양자리':['오늘은 새로운 도전을 시작하기 최적의 날입니다. <b style="color:var(--gold-l)">용기 있는 첫 걸음</b>이 큰 변화를 만들어냅니다. 목표를 명확히 한 후 행동하세요.','활발한 에너지가 넘치는 하루입니다. <b style="color:var(--gold-l)">팀 활동과 협력</b>에서 리더십을 발휘할 기회가 찾아옵니다.'],
+  '황소자리':['안정과 실리를 추구하는 날입니다. <b style="color:var(--gold-l)">재물 관련 결정</b>은 신중하게, 좋은 기회가 있다면 망설이지 마세요.','<b style="color:var(--gold-l)">감각적인 즐거움</b>을 찾는 하루입니다. 맛있는 음식이나 좋은 음악으로 자신을 충전해 보세요.'],
+  '쌍둥이자리':['다양한 아이디어가 샘솟는 하루입니다. <b style="color:var(--gold-l)">소통과 네트워킹</b>에서 뜻밖의 기회를 잡을 수 있습니다.','호기심이 이끄는 대로 <b style="color:var(--gold-l)">새로운 분야를 탐색</b>해 보세요. 오늘의 관심이 내일의 가능성이 됩니다.'],
+  '게자리':['감정이 풍부해지는 하루입니다. <b style="color:var(--gold-l)">가까운 사람들과의 소통</b>으로 마음의 안정을 찾으세요.','직관이 강해지는 날입니다. <b style="color:var(--gold-l)">내면의 목소리</b>를 믿어 보세요. 중요한 통찰이 찾아올 수 있습니다.'],
+  '사자자리':['창의적인 에너지가 최고조인 날입니다. <b style="color:var(--gold-l)">자신의 재능을 마음껏 표현</b>하고 주목받을 기회를 잡으세요.','리더십이 빛나는 하루입니다. <b style="color:var(--gold-l)">오늘이 최적의 타이밍</b>입니다. 중요한 결정이나 발표를 해보세요.'],
+  '처녀자리':['세심한 분석력이 돋보이는 날입니다. <b style="color:var(--gold-l)">미루어 두었던 작업</b>을 정리하기 좋은 날입니다.','건강 관리에 신경 쓰기 좋은 하루입니다. <b style="color:var(--gold-l)">몸의 신호</b>에 귀를 기울이세요.'],
+  '천칭자리':['인간관계에서 균형이 중요한 날입니다. 갈등이 있다면 <b style="color:var(--gold-l)">화해와 타협의 적기</b>입니다.','예술적 감수성이 높아지는 하루입니다. <b style="color:var(--gold-l)">아름다운 것들</b>에서 영감을 받고 창의력을 키워보세요.'],
+  '전갈자리':['깊은 통찰력이 발휘되는 날입니다. <b style="color:var(--gold-l)">숨겨진 진실을 발견</b>하거나 중요한 정보를 얻을 기회가 생깁니다.','<b style="color:var(--gold-l)">변화를 두려워하지 마세요.</b> 오늘의 작은 변혁이 장기적으로 큰 성장을 가져옵니다.'],
+  '사수자리':['자유와 탐험을 향한 열망이 강해지는 날입니다. <b style="color:var(--gold-l)">새로운 배움이나 여행</b>에 관련된 좋은 소식이 찾아올 수 있습니다.','낙관적인 에너지가 주변을 밝히는 하루입니다. <b style="color:var(--gold-l)">당신의 열정</b>이 다른 사람들에게도 긍정적인 영향을 미칩니다.'],
+  '염소자리':['목표를 향한 노력이 결실을 맺는 날입니다. <b style="color:var(--gold-l)">작은 성취도 놓치지 말고</b> 스스로를 격려하세요.','실용적인 접근이 빛을 발하는 하루입니다. <b style="color:var(--gold-l)">장기 계획을 점검</b>하고 다음 단계를 구체화해 보세요.'],
+  '물병자리':['혁신적인 아이디어가 떠오르는 날입니다. <b style="color:var(--gold-l)">독창적인 시각</b>으로 문제를 접근하면 돌파구를 찾을 수 있습니다.','<b style="color:var(--gold-l)">커뮤니티 활동</b>이나 뜻 있는 사람들과의 교류에서 에너지를 얻으세요.'],
+  '물고기자리':['감수성과 직관이 극대화되는 날입니다. <b style="color:var(--gold-l)">예술·음악·명상</b> 등 내면을 풍요롭게 하는 활동을 즐겨보세요.','타인에 대한 공감 능력이 높아지는 하루입니다. <b style="color:var(--gold-l)">도움이 필요한 사람</b>에게 손을 내밀면 좋은 인연이 맺어집니다.'],
+};
+function getZodiac(bd){
+  const m=bd.getMonth()+1,d=bd.getDate();
+  for(const z of ZODIAC){
+    const[fm,fd]=z.from,[tm,td]=z.to;
+    if(fm>tm){if((m===fm&&d>=fd)||(m===tm&&d<=td))return z;}
+    else{if((m===fm&&d>=fd)||(m>fm&&m<tm)||(m===tm&&d<=td))return z;}
+  }
+  return ZODIAC[11];
+}
+function renderZodiac(bd,rand){
+  const z=getZodiac(bd),texts=ZF[z.name]||ZF['사수자리'];
+  document.getElementById('z-symbol').textContent=z.symbol;
+  document.getElementById('z-name').textContent=z.name+' '+z.symbol;
+  document.getElementById('z-period').textContent='📅 '+z.period;
+  document.getElementById('z-elem').textContent='원소: '+z.elem+' · 지배성: '+z.ruling+' · '+z.keyword;
+  document.getElementById('z-fortune').innerHTML=texts[Math.floor(rand()*texts.length)];
+  const zs=Math.floor(rand()*2)+3,zl=Math.floor(rand()*2)+3,zm=Math.floor(rand()*2)+3;
+  document.getElementById('z-scores').innerHTML=[{l:'전체운',v:zs},{l:'대인운',v:zl},{l:'직업운',v:zm}].map(s=>`
+    <div>
+      <div style="font-size:11px;color:var(--text-dim);margin-bottom:5px;">${s.l}</div>
+      <div style="font-size:16px;letter-spacing:1px;">${'⭐'.repeat(s.v)}${'☆'.repeat(5-s.v)}</div>
+      <div style="font-size:12px;color:var(--gold);margin-top:3px;">${s.v} / 5</div>
+    </div>`).join('');
+  document.getElementById('z-tip').innerHTML=
+    `🌟 <b style="color:var(--gold-l)">${z.name}</b>의 핵심 에너지: <b style="color:var(--gold-l)">${z.keyword}</b><br>`+
+    `🪐 지배 행성 <b style="color:var(--gold-l)">${z.ruling}</b>의 기운이 오늘 특히 강합니다.<br>`+
+    `💫 원소 <b style="color:var(--gold-l)">${z.elem}</b>의 특성을 살려 오늘 하루를 보내보세요.`;
+}
+
 const BRANCHES   = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
 const STEM_KR    = ['갑','을','병','정','무','기','경','신','임','계'];
 const BRANCH_KR  = ['자','축','인','묘','진','사','오','미','신','유','술','해'];
@@ -364,6 +446,9 @@ function render(user) {
       <div style="font-size:10px;color:var(--text-dim);">${t.l}</div>
       <div style="font-size:13px;color:var(--gold-l);font-weight:500;margin-top:3px;">${t.v}</div>
     </div>`).join('');
+
+  // 별자리
+  renderZodiac(bd, mkRand(todaySeed(bd.getTime()) + 7777));
 
   document.getElementById('modal').classList.add('hide');
   document.getElementById('app').style.display='block';
