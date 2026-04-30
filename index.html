@@ -192,8 +192,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
   <!-- 주간 운세 차트 -->
   <div style="background:var(--card);border:1px solid var(--border);border-radius:20px;padding:20px;margin-bottom:14px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-      <div style="font-size:11px;color:var(--gold);letter-spacing:1px;">📈 주간 운세 차트</div>
-      <div style="font-size:10px;color:var(--text-dim);">내일부터 7일간</div>
+      <div style="font-size:11px;color:var(--gold);letter-spacing:1px;">📈 사주 주간 운세 차트</div>
+      <div style="font-size:10px;color:var(--text-dim);">날짜 탭하면 상세 보기</div>
     </div>
     <!-- 범례 -->
     <div style="display:flex;gap:14px;margin-bottom:14px;flex-wrap:wrap;">
@@ -202,7 +202,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
       <span style="font-size:10px;color:#7edd9a;display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:18px;height:2px;background:#7edd9a;border-radius:2px;"></span>재물운</span>
     </div>
     <!-- 캔버스 -->
-    <canvas id="week-chart" height="180" style="width:100%;display:block;border-radius:12px;"></canvas>
+    <canvas id="week-chart" height="180" style="width:100%;display:block;border-radius:12px;cursor:pointer;"></canvas>
     <!-- 날짜 라벨 -->
     <div id="week-labels" style="display:grid;grid-template-columns:repeat(7,1fr);margin-top:8px;text-align:center;gap:4px;"></div>
     <!-- 7일 카드 -->
@@ -316,13 +316,17 @@ function renderWeekChart(bd, rand) {
     days7.push({date:d, overall, love, money, level});
   }
 
-  // ── 날짜 라벨 ──
+  // ── 날짜 라벨 (클릭 → 사주 상세) ──
   const DAYS = ['일','월','화','수','목','금','토'];
-  document.getElementById('week-labels').innerHTML = days7.map(({date})=>`
-    <div>
+  document.getElementById('week-labels').innerHTML = days7.map(({date, level}, i)=>{
+    const lvlColor = level==='high'?'#f0d080':level==='mid'?'rgba(232,224,208,.7)':'rgba(160,140,200,.7)';
+    return `<div onclick="openSajuDetail(${i})" style="cursor:pointer;padding:4px 2px;border-radius:8px;
+      transition:background .2s;" onmouseover="this.style.background='rgba(201,168,76,.12)'"
+      onmouseout="this.style.background='transparent'">
       <div style="font-size:9px;color:var(--text-dim);">${date.getMonth()+1}/${date.getDate()}</div>
-      <div style="font-size:10px;color:var(--gold);margin-top:1px;">${DAYS[date.getDay()]}</div>
-    </div>`).join('');
+      <div style="font-size:10px;color:${lvlColor};margin-top:1px;">${DAYS[date.getDay()]}</div>
+    </div>`;
+  }).join('');
 
   // ── Canvas 차트 ──
   const canvas = document.getElementById('week-chart');
@@ -401,8 +405,17 @@ function renderWeekChart(bd, rand) {
   ctx.textAlign = 'center';
   ctx.fillText(`▲${maxD.overall}`, xPos(maxIdx), yPos(maxD.overall)-8);
 
+  // canvas 클릭 → 사주 상세
+  canvas.onclick = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const idx = Math.max(0, Math.min(6, Math.round((x - PAD.left) / (cW/6))));
+    openSajuDetail(idx);
+  };
+  canvas.style.touchAction = 'manipulation';
+
   // ── 7일 카드 ──
-  document.getElementById('week-cards').innerHTML = days7.map(({date,overall,love,money,level})=>{
+  document.getElementById('week-cards').innerHTML = days7.map(({date,overall,love,money,level}, i)=>{
     const msgs = WEEK_MSGS[level];
     const msg  = msgs[Math.floor(Math.random()*msgs.length)];
     const emoji= WEEK_EMOJI[level];
@@ -412,7 +425,9 @@ function renderWeekChart(bd, rand) {
     const borderMap= {high:'rgba(201,168,76,.35)',mid:'rgba(150,150,180,.2)',low:'rgba(120,100,160,.25)'};
     return `
     <div style="background:${colorMap[level]};border:1px solid ${borderMap[level]};
-      border-radius:14px;padding:14px 16px;display:flex;gap:12px;align-items:flex-start;">
+      border-radius:14px;padding:14px 16px;display:flex;gap:12px;align-items:flex-start;
+      cursor:pointer;transition:opacity .2s;" onclick="openSajuDetail(${i})"
+      onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
       <div style="font-size:28px;line-height:1;flex-shrink:0;">${emoji}</div>
       <div style="flex:1;min-width:0;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
@@ -705,43 +720,266 @@ const ELEM_COLOR = {'목':'#4caf7d','화':'#e05c5c','토':'#c9a84c','금':'#a0c4
 const ELEM_EMOJI = {'목':'🌿','화':'🔥','토':'🌍','금':'⚡','수':'💧'};
 const DAYS_KR    = ['일','월','화','수','목','금','토'];
 
-// ── 사주 계산 ──
-function yearPillar(y) {
-  return { s:((y-4)%10+10)%10, b:((y-4)%12+12)%12 };
+// ─────────────────────────────────────────────
+// ── 사주 계산 (정확도 개선판) ──
+// 출처: 한국천문연구원 24절기, 오호둔법, 진태양시 보정
+// ─────────────────────────────────────────────
+
+// 절기 테이블: 월주의 시작점 (각 연도별 입절 날짜)
+// [입춘,경칩,청명,입하,망종,소서,입추,백로,한로,입동,대설,소한]
+// 대응 사주월: [1,2,3,4,5,6,7,8,9,10,11,12]
+const JEOLGI = {
+  2020:[4,5,4,5,5,6,7,7,8,7,7,6],
+  2021:[3,5,4,5,5,7,7,7,8,7,7,5],
+  2022:[4,6,5,5,6,6,7,8,8,7,7,5],
+  2023:[4,6,5,6,6,7,7,8,8,8,8,6],
+  2024:[4,5,4,5,5,6,6,7,8,7,7,6],
+  2025:[3,5,5,5,5,7,7,7,8,7,7,5],
+  2026:[4,6,5,5,6,7,7,8,8,7,7,6],
+  2027:[4,6,5,6,6,7,7,8,8,8,7,5],
+  2028:[4,5,4,5,5,6,7,7,7,7,7,6],
+};
+// 절기 달 = 사주 월 번호 (1~12, 1=인월)
+// [Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec,Jan_next]
+const JEOLGI_CAL_MONTH = [2,3,4,5,6,7,8,9,10,11,12,1];
+
+function getSajuMonth(year, month, day) {
+  // 해당 연도의 절기 테이블 선택 (없으면 근사치)
+  const tbl = JEOLGI[year] || JEOLGI[2025];
+  // 절기 배열: index 0=입춘(2월), ..., 11=소한(다음해1월)
+  for (let i = 0; i < 12; i++) {
+    const jeolgiCalMonth = JEOLGI_CAL_MONTH[i];
+    const jeolgiDay = tbl[i];
+    // 소한(index 11)은 다음해 1월
+    const targetYear = (i === 11) ? year + 1 : year;
+    if (month === jeolgiCalMonth && day >= jeolgiDay) {
+      return (i + 1); // 사주 월 1~12
+    }
+    // 다음 절기 전날까지는 이전 달
+    const nextI = (i + 1) % 12;
+    const nextCalMonth = JEOLGI_CAL_MONTH[nextI];
+    const nextDay = JEOLGI[nextI === 0 ? year + 1 : year]?.[nextI] || tbl[nextI];
+    // 현재 월이 해당 절기 달과 다음 절기 달 사이이면 이 달
+    if (i < 11) {
+      if (month > jeolgiCalMonth && month < nextCalMonth) return (i + 1);
+      if (month === nextCalMonth && day < nextDay) return (i + 1);
+    }
+  }
+  // 1월 소한 이전 → 축월(12)
+  if (month === 1) return 12;
+  return 1;
 }
-function monthPillar(y, m) {
-  const ys = ((y-4)%10+10)%10;
-  const base = (ys%5)*2;
-  return { s:(base+m-1)%10, b:(m+1)%12 };
+
+// 오호둔법: 연간(年干)으로 월간(月干) 기준점 계산
+// 갑기년: 인월=병, 을경년: 인월=무, 병신년: 인월=경, 정임년: 인월=임, 무계년: 인월=갑
+function monthStem(yearStem, sajuMonth) {
+  const base = (yearStem % 5) * 2 + 2; // 인월 기준 천간 (2=병)
+  return (base + sajuMonth - 1) % 10;
 }
+
+// 월지: 사주월 → 지지 (인=2, 묘=3, ...)
+function monthBranch(sajuMonth) {
+  return (sajuMonth + 1) % 12; // 인월(1)→지지2, 묘월(2)→지지3 ...
+}
+
+// 일주: 검증된 기준일 (1900년 1월 31일 = 甲子일)
 function dayPillar(date) {
-  const base = new Date(1900,0,31);
-  const diff = Math.floor((date-base)/86400000);
-  return { s:((diff%10)+10)%10, b:((diff%12)+12)%12 };
+  const base = new Date(1900, 0, 31);
+  const diff = Math.floor((date - base) / 86400000);
+  return { s: ((diff % 10) + 10) % 10, b: ((diff % 12) + 12) % 12 };
 }
-function hourPillar(dayStem, hb) {
-  return { s:((dayStem%5)*2+Math.floor(hb/2))%10, b:hb%12 };
+
+// 한국 진태양시 보정: KST(UTC+9) → 진태양시(UTC+8:27:32) ≈ -32분
+// 즉 입력 시각에서 32분을 빼서 실제 사주 시간 계산
+function kstToTrueSolar(hour, minute) {
+  let totalMin = hour * 60 + minute - 32;
+  if (totalMin < 0) totalMin += 24 * 60;
+  return Math.floor(totalMin / 60);
 }
-function buildSaju(birthDate, hb) {
-  const y=birthDate.getFullYear(), m=birthDate.getMonth()+1;
-  const yp=yearPillar(y), mp=monthPillar(y,m), dp=dayPillar(birthDate), hp=hourPillar(dp.s,hb);
+
+// 시주: 일간(日干)과 시지(時支)로 계산 (오자둔법)
+function hourPillar(dayStem, trueHour) {
+  const hb = Math.floor(((trueHour + 1) % 24) / 2);
+  return { s: ((dayStem % 5) * 2 + hb) % 10, b: hb % 12 };
+}
+
+// 연주
+function yearPillar(y) {
+  return { s: ((y - 4) % 10 + 10) % 10, b: ((y - 4) % 12 + 12) % 12 };
+}
+
+// 사주 전체 계산
+function buildSaju(birthDate, inputHour, inputMinute) {
+  const y = birthDate.getFullYear();
+  const m = birthDate.getMonth() + 1;
+  const d = birthDate.getDate();
+  const min = inputMinute || 0;
+  const trueHour = kstToTrueSolar(inputHour, min);
+  const sajuMonth = getSajuMonth(y, m, d);
+  const yp = yearPillar(y);
+  const mp = { s: monthStem(yp.s, sajuMonth), b: monthBranch(sajuMonth) };
+  const dp = dayPillar(birthDate);
+  const hp = hourPillar(dp.s, trueHour);
   return [
-    {label:'연주 (年柱)',...yp},
-    {label:'월주 (月柱)',...mp},
-    {label:'일주 (日柱)',...dp},
-    {label:'시주 (時柱)',...hp},
+    { label:'연주 (年柱)', ...yp },
+    { label:'월주 (月柱)', ...mp },
+    { label:'일주 (日柱)', ...dp },
+    { label:'시주 (時柱)', ...hp },
   ];
 }
+
 function todaySaju() {
-  const now=new Date();
-  const hb=Math.floor(((now.getHours()+1)%24)/2);
-  return buildSaju(now,hb);
+  const now = new Date();
+  const hb = Math.floor(((now.getHours() + 1) % 24) / 2);
+  return buildSaju(now, now.getHours(), now.getMinutes());
 }
+
 function elemCount(pillars) {
-  const c={'목':0,'화':0,'토':0,'금':0,'수':0};
-  pillars.forEach(p=>{c[STEM_ELEM[p.s]]++;c[BRANCH_ELEM[p.b]]++;});
+  const c = {'목':0,'화':0,'토':0,'금':0,'수':0};
+  pillars.forEach(p => { c[STEM_ELEM[p.s]]++; c[BRANCH_ELEM[p.b]]++; });
   return c;
 }
+
+// ── 십신 (十神) 계산: 일간(日干) 기준 ──
+const SIPSIN_NAMES = ['비견','겁재','식신','상관','편재','정재','편관','정관','편인','정인'];
+const SIPSIN_MEANING = {
+  '비견':'자아·독립심·경쟁', '겁재':'추진력·과감함·경쟁',
+  '식신':'표현·창의·식복', '상관':'재능·자유·반항심',
+  '편재':'사업·활동성·임기응변', '정재':'성실·안정·재물',
+  '편관':'도전·권위·극복', '정관':'명예·책임·규범',
+  '편인':'직관·학문·변화', '정인':'학습·인내·지혜'
+};
+function getSipsin(dayStem, targetStem) {
+  const diff = ((targetStem - dayStem) + 10) % 10;
+  return SIPSIN_NAMES[diff];
+}
+
+// ── 합충 간단 판별 ──
+const CHUNG_BRANCH = [[0,6],[1,7],[2,8],[3,9],[4,10],[5,11]]; // 子午충, 丑未충 등
+const HAP_BRANCH = [[0,11],[1,10],[2,9],[3,8],[4,7],[5,6]];   // 子丑합, 寅亥합 등
+function checkChung(b1, b2) { return CHUNG_BRANCH.some(([a,bb])=>(b1===a&&b2===bb)||(b1===bb&&b2===a)); }
+function checkHap(b1, b2) { return HAP_BRANCH.some(([a,bb])=>(b1===a&&b2===bb)||(b1===bb&&b2===a)); }
+
+// ── 지장간 (地藏干) ──
+const JIJANGAN = {
+  子:[9],        丑:[9,2,5],   寅:[7,0,2],   卯:[1],
+  辰:[1,5,2],    巳:[5,7,2],   午:[2,3],      未:[3,5,1],
+  申:[5,9,6],    酉:[7],        戌:[7,5,3],   亥:[9,1],
+};
+function getJijangan(branchIdx) {
+  const branchChar = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'][branchIdx];
+  return (JIJANGAN[branchChar] || []).map(s => STEMS[s]).join('·');
+}
+
+// ── 사주 주간 데이터 ──
+let _sajuWeekData = [];
+function buildSajuWeekData(birthDate, birthHour) {
+  const now = new Date();
+  const birthPillars = buildSaju(birthDate, birthHour, 0);
+  const dayPillarBirth = birthPillars[2]; // 일주
+  const data = [];
+  for (let i = 1; i <= 7; i++) {
+    const d = new Date(now);
+    d.setDate(now.getDate() + i);
+    const dp = dayPillar(d);
+    // 일간과 일진의 십신 관계
+    const ss = getSipsin(dayPillarBirth.s, dp.s);
+    const hasChung = checkChung(dayPillarBirth.b, dp.b) || checkChung(birthPillars[0].b, dp.b);
+    const hasHap = checkHap(dayPillarBirth.b, dp.b) || checkHap(birthPillars[0].b, dp.b);
+    // 점수: 십신 유형 + 합충에 따라 결정
+    const sipsinScore = { '비견':3.5,'겁재':3,'식신':4,'상관':3.5,'편재':4,'정재':4.5,'편관':3,'정관':4.5,'편인':3.5,'정인':4 }[ss] || 3.5;
+    const seed = d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate();
+    const r = mkRand(seed * 23 + birthDate.getTime() % 8191);
+    const overall = Math.min(5, Math.max(2, +(sipsinScore + (r()-0.5)*1.5 + (hasHap?0.3:0) + (hasChung?-0.3:0)).toFixed(1)));
+    const love    = +(2.5 + r() * 2.5).toFixed(1);
+    const money   = +(2.5 + r() * 2.5).toFixed(1);
+    const level   = overall >= 4 ? 'high' : overall >= 3 ? 'mid' : 'low';
+    data.push({ date:d, dp, overall, love, money, level, sipsin:ss, hasChung, hasHap, birthDay:dayPillarBirth });
+  }
+  return data;
+}
+
+// ── 사주 상세 모달 ──
+function openSajuDetail(idx) {
+  const d = _sajuWeekData[idx];
+  if (!d) return;
+  const DAYS = ['일','월','화','수','목','금','토'];
+  const { dp, sipsin, hasChung, hasHap, birthDay } = d;
+  const stemName = STEMS[dp.s], branchName = BRANCHES[dp.b];
+  const stemKr = STEM_KR[dp.s], branchKr = BRANCH_KR[dp.b];
+  const stemElem = STEM_ELEM[dp.s], branchElem = BRANCH_ELEM[dp.b];
+  const animal = ANIMAL_KR[dp.b], animalEmoji = ANIMALS[dp.b];
+  const jijangan = getJijangan(dp.b);
+  const sipsinMeaning = SIPSIN_MEANING[sipsin] || '';
+
+  // 합충 메시지
+  let hapchungMsg = '';
+  if (hasHap) hapchungMsg = `<span style="color:#7edd9a">⚡ 일지합 — 귀인·협력 에너지 상승</span>`;
+  if (hasChung) hapchungMsg = `<span style="color:#e05c5c">🔥 일지충 — 변화·이동·긴장 주의</span>`;
+
+  // 운세 텍스트 (십신 기반)
+  const sipsinFortune = {
+    '비견': `오늘은 <b style="color:var(--gold-l)">비견(比肩)</b>의 기운이 강합니다. 독립심과 자존감이 높아지는 날로, 나만의 프로젝트나 자기 개발에 집중하면 좋습니다. 경쟁보다는 자신과의 싸움에 집중하세요.`,
+    '겁재': `오늘은 <b style="color:var(--gold-l)">겁재(劫財)</b>의 날입니다. 추진력이 강해지나 과욕은 금물. 재물 지출을 조심하고, 에너지를 창의적 활동에 쏟으세요.`,
+    '식신': `오늘은 <b style="color:var(--gold-l)">식신(食神)</b>의 복이 가득한 날입니다. 창의력과 표현력이 극대화되며, 맛있는 음식과 즐거운 대화로 하루를 채우세요. 식복(食福)이 열려 있습니다.`,
+    '상관': `오늘은 <b style="color:var(--gold-l)">상관(傷官)</b>의 기운으로 재능이 폭발하는 날입니다. 예술·창작·아이디어 발표에 최적이지만, 권위자와의 충돌은 조심하세요.`,
+    '편재': `오늘은 <b style="color:var(--gold-l)">편재(偏財)</b>의 날로 활동성이 높아집니다. 사업적 기회와 예상치 못한 수입이 찾아올 수 있습니다. 적극적으로 움직이세요.`,
+    '정재': `오늘은 <b style="color:var(--gold-l)">정재(正財)</b>의 안정된 재물운이 흐릅니다. 성실한 노력이 반드시 결과로 이어지는 날입니다. 저축·투자 계획을 세우기 좋습니다.`,
+    '편관': `오늘은 <b style="color:var(--gold-l)">편관(偏官)</b>의 도전적 기운이 강합니다. 어려운 일도 정면돌파하면 뜻밖의 성과를 얻을 수 있지만, 무리는 금물. 건강에도 신경 쓰세요.`,
+    '정관': `오늘은 <b style="color:var(--gold-l)">정관(正官)</b>의 기운으로 명예와 신뢰가 높아지는 날입니다. 책임 있는 행동이 장기적으로 큰 보상을 가져옵니다. 공식적인 자리에 적합합니다.`,
+    '편인': `오늘은 <b style="color:var(--gold-l)">편인(偏印)</b>의 직관이 빛나는 날입니다. 학문·연구·영적인 탐구에 좋은 기운이 흐릅니다. 혼자만의 시간을 가지며 통찰을 얻으세요.`,
+    '정인': `오늘은 <b style="color:var(--gold-l)">정인(正印)</b>의 지혜로운 기운이 감돕니다. 학습·문서·시험에 최적의 날입니다. 어른이나 스승의 조언을 구하면 큰 도움이 됩니다.`,
+  };
+
+  const bar = (v, color, label) => `
+    <div style="margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+        <span style="font-size:11px;color:var(--gold);">${label}</span>
+        <span style="font-size:11px;color:${color};">${v}/5</span>
+      </div>
+      <div style="height:8px;background:rgba(255,255,255,.07);border-radius:99px;overflow:hidden;">
+        <div style="height:100%;width:${(v/5)*100}%;background:${color};border-radius:99px;transition:width .6s ease;"></div>
+      </div>
+    </div>`;
+
+  document.getElementById('dm-date').innerHTML =
+    `${d.date.getMonth()+1}월 ${d.date.getDate()}일 (${DAYS[d.date.getDay()]})<br>
+     <span style="font-size:13px;font-family:'Noto Serif KR',serif;color:var(--gold-l);">${stemName}${branchName}일 (${stemKr}${branchKr})</span>`;
+  document.getElementById('dm-zodiac').innerHTML =
+    `${animalEmoji} ${animal}의 날 &nbsp;·&nbsp; 천간 ${stemElem} ${ELEM_EMOJI[stemElem]} &nbsp;·&nbsp; 지지 ${branchElem} ${ELEM_EMOJI[branchElem]}${hapchungMsg?'<br>'+hapchungMsg:''}`;
+  document.getElementById('dm-emoji').textContent = animalEmoji;
+
+  document.getElementById('dm-bars').innerHTML =
+    bar(d.overall, '#c9a84c', '종합운') +
+    bar(d.love,    '#7eb8f7', '애정운') +
+    bar(d.money,   '#7edd9a', '재물운') +
+    `<div style="background:rgba(255,255,255,.04);border-radius:10px;padding:10px 12px;margin-top:4px;">
+      <div style="font-size:11px;color:var(--gold);margin-bottom:4px;">📐 십신 분석</div>
+      <div style="font-size:13px;color:var(--gold-l);font-weight:600;">${sipsin}</div>
+      <div style="font-size:11px;color:var(--text-dim);margin-top:2px;">${sipsinMeaning}</div>
+      <div style="font-size:11px;color:var(--text-dim);margin-top:4px;">지장간: ${jijangan || '-'}</div>
+    </div>`;
+
+  document.getElementById('dm-text').innerHTML = sipsinFortune[sipsin] || '오늘 하루도 좋은 기운이 흐릅니다.';
+  document.getElementById('dm-tips').innerHTML = [
+    {e: ELEM_EMOJI[stemElem], l:'천간 오행', v: stemElem},
+    {e: ELEM_EMOJI[branchElem], l:'지지 오행', v: branchElem},
+    {e: hasHap?'💚':hasChung?'🔴':'⚪', l: hasHap?'일지합':'일지충없음', v: hasHap?'합(吉)':hasChung?'충(注意)':'평온'},
+  ].map(t=>`
+    <div style="background:rgba(255,255,255,.04);border:1px solid var(--border);
+      border-radius:12px;padding:12px 8px;text-align:center;">
+      <span style="font-size:20px;display:block;margin-bottom:3px;">${t.e}</span>
+      <div style="font-size:9px;color:var(--text-dim);">${t.l}</div>
+      <div style="font-size:12px;color:var(--gold-l);margin-top:2px;">${t.v}</div>
+    </div>`).join('');
+
+  const modal = document.getElementById('detail-modal');
+  const sheet = document.getElementById('detail-sheet');
+  modal.style.display = 'flex';
+  modal.onclick = (e) => { if(e.target===modal) closeDetail(); };
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{ sheet.style.transform='translateY(0)'; }));
+}
+
 
 // ── 시드 난수 ──
 function mkRand(seed) {
@@ -859,6 +1097,9 @@ function render(user) {
       <div style="font-size:10px;color:var(--text-dim);">${t.l}</div>
       <div style="font-size:13px;color:var(--gold-l);font-weight:500;margin-top:3px;">${t.v}</div>
     </div>`).join('');
+
+  // 사주 주간 데이터 빌드 (클릭 상세용)
+  _sajuWeekData = buildSajuWeekData(bd, parseInt(hour));
 
   // 주간 운세 차트
   renderWeekChart(bd, mkRand(todaySeed(bd.getTime()) + 3333));
