@@ -189,6 +189,26 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
     <div id="tips" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;"></div>
   </div>
 
+  <!-- 주간 운세 차트 -->
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:20px;padding:20px;margin-bottom:14px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+      <div style="font-size:11px;color:var(--gold);letter-spacing:1px;">📈 주간 운세 차트</div>
+      <div style="font-size:10px;color:var(--text-dim);">내일부터 7일간</div>
+    </div>
+    <!-- 범례 -->
+    <div style="display:flex;gap:14px;margin-bottom:14px;flex-wrap:wrap;">
+      <span style="font-size:10px;color:#c9a84c;display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:18px;height:2px;background:#c9a84c;border-radius:2px;"></span>종합운</span>
+      <span style="font-size:10px;color:#7eb8f7;display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:18px;height:2px;background:#7eb8f7;border-radius:2px;"></span>애정운</span>
+      <span style="font-size:10px;color:#7edd9a;display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:18px;height:2px;background:#7edd9a;border-radius:2px;"></span>재물운</span>
+    </div>
+    <!-- 캔버스 -->
+    <canvas id="week-chart" height="180" style="width:100%;display:block;border-radius:12px;"></canvas>
+    <!-- 날짜 라벨 -->
+    <div id="week-labels" style="display:grid;grid-template-columns:repeat(7,1fr);margin-top:8px;text-align:center;gap:4px;"></div>
+    <!-- 7일 카드 -->
+    <div id="week-cards" style="display:flex;flex-direction:column;gap:8px;margin-top:16px;"></div>
+  </div>
+
   <!-- 별자리 운세 -->
   <div style="background:var(--card);border:1px solid var(--border);border-radius:20px;padding:20px;margin-bottom:14px;">
     <div style="font-size:11px;color:var(--gold);letter-spacing:1px;margin-bottom:16px;">⭐ 별자리 운세</div>
@@ -223,6 +243,144 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 <script>
 // ── 데이터 ──
 const STEMS      = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
+// ── 주간 운세 차트 ──
+const WEEK_MSGS = {
+  high:  ['활기차고 긍정적인 에너지가 넘치는 날','주변의 지지와 도움이 강하게 느껴지는 날','결단력이 빛을 발하는 최고의 날'],
+  mid:   ['평온하게 흘러가는 무난한 하루','차분하게 내실을 다지기 좋은 날','작은 노력이 쌓이는 안정적인 날'],
+  low:   ['에너지를 비축하며 쉬어가는 날','신중함이 필요한 날, 충동적 결정은 금물','내면을 돌아보는 성찰의 시간'],
+};
+const WEEK_EMOJI = {high:'🔥',mid:'⚡',low:'🌙'};
+
+function renderWeekChart(bd, rand) {
+  const days7 = [];
+  const now = new Date();
+  for (let i = 1; i <= 7; i++) {
+    const d = new Date(now);
+    d.setDate(now.getDate() + i);
+    // 날마다 다른 시드
+    const seed = d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate();
+    const r = mkRand(seed * 17 + bd.getTime() % 9973);
+    const overall = +(2.5 + r() * 2.5).toFixed(1);
+    const love    = +(2.5 + r() * 2.5).toFixed(1);
+    const money   = +(2.5 + r() * 2.5).toFixed(1);
+    const level   = overall >= 4 ? 'high' : overall >= 3 ? 'mid' : 'low';
+    days7.push({date:d, overall, love, money, level});
+  }
+
+  // ── 날짜 라벨 ──
+  const DAYS = ['일','월','화','수','목','금','토'];
+  document.getElementById('week-labels').innerHTML = days7.map(({date})=>`
+    <div>
+      <div style="font-size:9px;color:var(--text-dim);">${date.getMonth()+1}/${date.getDate()}</div>
+      <div style="font-size:10px;color:var(--gold);margin-top:1px;">${DAYS[date.getDay()]}</div>
+    </div>`).join('');
+
+  // ── Canvas 차트 ──
+  const canvas = document.getElementById('week-chart');
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.parentElement.clientWidth - 40;
+  const H = 180;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const PAD = {top:16, right:16, bottom:12, left:28};
+  const cW = W - PAD.left - PAD.right;
+  const cH = H - PAD.top  - PAD.bottom;
+  const MIN_V = 1, MAX_V = 5;
+
+  function xPos(i) { return PAD.left + (i / 6) * cW; }
+  function yPos(v) { return PAD.top + cH - ((v - MIN_V) / (MAX_V - MIN_V)) * cH; }
+
+  // 배경 그리드
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1;
+  [1,2,3,4,5].forEach(v => {
+    ctx.beginPath(); ctx.moveTo(PAD.left, yPos(v)); ctx.lineTo(PAD.left+cW, yPos(v)); ctx.stroke();
+  });
+
+  // Y축 라벨
+  ctx.fillStyle = 'rgba(232,224,208,0.35)';
+  ctx.font = `${9*dpr/dpr}px sans-serif`;
+  ctx.textAlign = 'right';
+  [1,2,3,4,5].forEach(v=>{ctx.fillText(v, PAD.left-5, yPos(v)+3);});
+
+  // 선 + 면적 그리기 함수
+  function drawLine(vals, color, fillColor) {
+    // 면적
+    ctx.beginPath();
+    ctx.moveTo(xPos(0), yPos(vals[0]));
+    vals.forEach((v,i)=>{ if(i>0) ctx.lineTo(xPos(i),yPos(v)); });
+    ctx.lineTo(xPos(6), yPos(0)+PAD.top+cH);
+    ctx.lineTo(xPos(0), yPos(0)+PAD.top+cH);
+    ctx.closePath();
+    ctx.fillStyle = fillColor;
+    ctx.fill();
+    // 선
+    ctx.beginPath();
+    ctx.moveTo(xPos(0), yPos(vals[0]));
+    vals.forEach((v,i)=>{ if(i>0) ctx.lineTo(xPos(i),yPos(v)); });
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+    // 점
+    vals.forEach((v,i)=>{
+      ctx.beginPath();
+      ctx.arc(xPos(i), yPos(v), 3.5, 0, Math.PI*2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(7,4,15,0.8)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    });
+  }
+
+  drawLine(days7.map(d=>d.money),  '#7edd9a', 'rgba(126,221,154,0.06)');
+  drawLine(days7.map(d=>d.love),   '#7eb8f7', 'rgba(126,184,247,0.06)');
+  drawLine(days7.map(d=>d.overall),'#c9a84c', 'rgba(201,168,76,0.10)');
+
+  // 오늘 → 내일 구분선 (없음, 내일부터 시작)
+  // 최고점 표시
+  const maxIdx = days7.reduce((mi,d,i,a)=>d.overall>a[mi].overall?i:mi,0);
+  const maxD = days7[maxIdx];
+  ctx.fillStyle = '#f0d080';
+  ctx.font = `bold ${10}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.fillText(`▲${maxD.overall}`, xPos(maxIdx), yPos(maxD.overall)-8);
+
+  // ── 7일 카드 ──
+  document.getElementById('week-cards').innerHTML = days7.map(({date,overall,love,money,level})=>{
+    const msgs = WEEK_MSGS[level];
+    const msg  = msgs[Math.floor(Math.random()*msgs.length)];
+    const emoji= WEEK_EMOJI[level];
+    const bar  = (v)=>'█'.repeat(Math.round(v)).padEnd(5,'░');
+    const dateStr = `${date.getMonth()+1}월 ${date.getDate()}일 (${DAYS[date.getDay()]})`;
+    const colorMap = {high:'rgba(201,168,76,.18)',mid:'rgba(100,100,120,.15)',low:'rgba(80,60,120,.15)'};
+    const borderMap= {high:'rgba(201,168,76,.35)',mid:'rgba(150,150,180,.2)',low:'rgba(120,100,160,.25)'};
+    return `
+    <div style="background:${colorMap[level]};border:1px solid ${borderMap[level]};
+      border-radius:14px;padding:14px 16px;display:flex;gap:12px;align-items:flex-start;">
+      <div style="font-size:28px;line-height:1;flex-shrink:0;">${emoji}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+          <div style="font-size:12px;font-weight:600;color:var(--gold-l);">${dateStr}</div>
+          <div style="font-size:13px;font-weight:700;color:${level==='high'?'#f0d080':level==='mid'?'#aaa':'#9988cc'};">${overall}/5</div>
+        </div>
+        <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px;line-height:1.5;">${msg}</div>
+        <div style="display:flex;gap:10px;font-size:10px;font-family:monospace;">
+          <span style="color:#c9a84c;">종합 ${bar(overall)}</span>
+          <span style="color:#7eb8f7;">애정 ${bar(love)}</span>
+          <span style="color:#7edd9a;">재물 ${bar(money)}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
 // ── 별자리 ──
 const ZODIAC=[
   {name:'염소자리',symbol:'♑',period:'12/22–1/19',elem:'흙',ruling:'토성',keyword:'인내·성실',from:[12,22],to:[1,19]},
@@ -446,6 +604,9 @@ function render(user) {
       <div style="font-size:10px;color:var(--text-dim);">${t.l}</div>
       <div style="font-size:13px;color:var(--gold-l);font-weight:500;margin-top:3px;">${t.v}</div>
     </div>`).join('');
+
+  // 주간 운세 차트
+  renderWeekChart(bd, mkRand(todaySeed(bd.getTime()) + 3333));
 
   // 별자리
   renderZodiac(bd, mkRand(todaySeed(bd.getTime()) + 7777));
