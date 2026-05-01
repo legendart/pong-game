@@ -729,10 +729,9 @@ function render(user) {
 }
 
 // ══════════════════════════════════════════
-// ── 8. 오늘의 역사 (Wikipedia API) ──
+// ── 8. 오늘의 역사 (Wikipedia + Claude API) ──
 // ══════════════════════════════════════════
 let _currentTab = 'world';
-let _historyData = { world: null, korea: null };
 
 function switchTab(tab) {
   _currentTab = tab;
@@ -740,52 +739,43 @@ function switchTab(tab) {
   const kBtn = document.getElementById('tab-korea');
   const wEl  = document.getElementById('history-world');
   const kEl  = document.getElementById('history-korea');
+  const activeStyle = 'border-color:var(--gold);background:rgba(201,168,76,.2);color:var(--gold-l);';
+  const inactiveStyle = 'border-color:var(--border);background:transparent;color:var(--text-dim);';
   if (tab === 'world') {
-    wBtn.style.cssText += ';border-color:var(--gold);background:rgba(201,168,76,.2);color:var(--gold-l);';
-    kBtn.style.cssText += ';border-color:var(--border);background:transparent;color:var(--text-dim);';
+    wBtn.setAttribute('style', wBtn.getAttribute('style').split(';').slice(0,5).join(';') + ';' + activeStyle);
+    kBtn.setAttribute('style', kBtn.getAttribute('style').split(';').slice(0,5).join(';') + ';' + inactiveStyle);
     wEl.style.display = 'flex';
     kEl.style.display = 'none';
   } else {
-    kBtn.style.cssText += ';border-color:var(--gold);background:rgba(201,168,76,.2);color:var(--gold-l);';
-    wBtn.style.cssText += ';border-color:var(--border);background:transparent;color:var(--text-dim);';
+    kBtn.setAttribute('style', kBtn.getAttribute('style').split(';').slice(0,5).join(';') + ';' + activeStyle);
+    wBtn.setAttribute('style', wBtn.getAttribute('style').split(';').slice(0,5).join(';') + ';' + inactiveStyle);
     kEl.style.display = 'flex';
     wEl.style.display = 'none';
   }
 }
 
-function historyCardHTML(event, isKorea) {
-  const year = event.year;
-  const text = event.text || '';
-  const pages = event.pages || [];
-  const page  = pages[0] || {};
-  const thumb = page.thumbnail?.source || '';
-  const url   = page.content_urls?.desktop?.page || page.content_urls?.mobile?.page || '';
-  const title = page.titles?.normalized || page.title || '';
-
-  // 연도 → 기원전/기원후
-  const yearLabel = year < 0 ? `기원전 ${Math.abs(year)}년` : `${year}년`;
-  const imgHTML = thumb
-    ? `<img src="${thumb}" alt="${title}"
-        style="width:100%;height:160px;object-fit:cover;border-radius:12px;margin-bottom:12px;display:block;"
+function historyCardHTML(item) {
+  const imgHTML = item.img
+    ? `<img src="${item.img}" alt="${item.title||''}"
+        style="width:100%;height:160px;object-fit:cover;border-radius:12px 12px 0 0;display:block;"
         onerror="this.style.display='none'">`
     : '';
-  const linkHTML = url
-    ? `<a href="${url}" target="_blank" rel="noopener"
-        style="font-size:11px;color:var(--gold);text-decoration:none;display:inline-flex;align-items:center;gap:4px;margin-top:8px;">
+  const linkHTML = item.url
+    ? `<a href="${item.url}" target="_blank" rel="noopener"
+        style="font-size:11px;color:var(--gold);text-decoration:none;display:inline-flex;align-items:center;gap:4px;margin-top:10px;">
         🔗 자세히 보기
       </a>`
     : '';
-
   return `
     <div style="background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:16px;overflow:hidden;">
       ${imgHTML}
       <div style="padding:14px;">
         <div style="display:inline-block;background:rgba(201,168,76,.15);border:1px solid rgba(201,168,76,.3);
           border-radius:8px;padding:3px 10px;font-size:11px;color:var(--gold);margin-bottom:10px;font-weight:600;">
-          ${yearLabel}
+          ${item.year}
         </div>
-        <div style="font-family:'Noto Serif KR',serif;font-size:14px;line-height:1.8;color:var(--text);">
-          ${text}
+        <div style="font-family:'Noto Serif KR',serif;font-size:14px;line-height:1.9;color:var(--text);">
+          ${item.text}
         </div>
         ${linkHTML}
       </div>
@@ -796,8 +786,6 @@ async function fetchHistory() {
   const now = new Date();
   const month = now.getMonth() + 1;
   const day   = now.getDate();
-
-  // 날짜 라벨
   const el = document.getElementById('history-date-label');
   if (el) el.textContent = `${month}월 ${day}일`;
 
@@ -807,53 +795,118 @@ async function fetchHistory() {
   document.getElementById('history-korea').style.display   = 'none';
 
   try {
-    const [worldRes, koRes] = await Promise.allSettled([
-      fetch(`https://en.wikipedia.org/api/rest_v1/feed/onthisday/events/${month}/${day}`,
-        {headers: {'Accept': 'application/json'}}),
-      fetch(`https://ko.wikipedia.org/api/rest_v1/feed/onthisday/events/${month}/${day}`,
-        {headers: {'Accept': 'application/json'}}),
-    ]);
+    // 1. Wikipedia 영어 API에서 원문 이벤트 가져오기
+    let rawEvents = [];
+    let pageMap = {};
+    try {
+      const res = await fetch(
+        `https://en.wikipedia.org/api/rest_v1/feed/onthisday/events/${month}/${day}`,
+        { headers: { 'Accept': 'application/json' } }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        // 이미지 있는 것 우선, 상위 7개
+        rawEvents = (data.events || [])
+          .sort((a,b) => {
+            const aImg = (a.pages||[]).some(p=>p.thumbnail);
+            const bImg = (b.pages||[]).some(p=>p.thumbnail);
+            return bImg - aImg;
+          })
+          .slice(0, 7);
+        // 이미지/URL 맵 저장
+        rawEvents.forEach(ev => {
+          const p = (ev.pages||[])[0] || {};
+          pageMap[ev.year + '_' + (ev.text||'').slice(0,20)] = {
+            img: p.thumbnail?.source || '',
+            url: p.content_urls?.mobile?.page || p.content_urls?.desktop?.page || '',
+            title: p.titles?.normalized || '',
+          };
+        });
+      }
+    } catch(e) {}
 
-    let worldEvents = [], koEvents = [];
+    // 2. Claude API로 한꺼번에 처리: 세계 번역 + 한국 역사 생성
+    const worldTexts = rawEvents.map(e =>
+      `[${e.year}년] ${(e.text||'').slice(0, 200)}`
+    ).join('\n');
 
-    if (worldRes.status === 'fulfilled' && worldRes.value.ok) {
-      const data = await worldRes.value.json();
-      // 주요 이벤트 상위 8개, 이미지 있는 것 우선
-      const evs = (data.events || []).sort((a,b) => {
-        const aHasImg = (a.pages||[]).some(p=>p.thumbnail);
-        const bHasImg = (b.pages||[]).some(p=>p.thumbnail);
-        return bHasImg - aHasImg;
-      });
-      worldEvents = evs.slice(0, 8);
-    }
+    const prompt = `오늘은 ${month}월 ${day}일입니다.
 
-    if (koRes.status === 'fulfilled' && koRes.value.ok) {
-      const data = await koRes.value.json();
-      const evs = (data.events || []).sort((a,b) => {
-        const aHasImg = (a.pages||[]).some(p=>p.thumbnail);
-        const bHasImg = (b.pages||[]).some(p=>p.thumbnail);
-        return bHasImg - aHasImg;
-      });
-      koEvents = evs.slice(0, 8);
-    }
+다음 두 가지 작업을 JSON으로 응답해주세요. 반드시 JSON만, 마크다운 없이 응답하세요.
 
-    _historyData = { world: worldEvents, korea: koEvents };
+작업1 - 세계 역사 번역:
+아래 영문 역사 이벤트들을 자연스러운 한국어로 번역해주세요.
+${worldTexts}
 
-    // 렌더
-    document.getElementById('history-world').innerHTML =
-      worldEvents.length ? worldEvents.map(e => historyCardHTML(e, false)).join('') :
-      '<div style="text-align:center;color:var(--text-dim);padding:20px;">데이터를 불러올 수 없습니다</div>';
+작업2 - 한국 역사 이벤트:
+${month}월 ${day}일에 실제로 일어난 한국 주요 역사 이벤트 6개를 다양한 연도에서 골라 작성해주세요. 삼국시대부터 현대까지 다양하게, 사실만 포함하세요.
 
-    document.getElementById('history-korea').innerHTML =
-      koEvents.length ? koEvents.map(e => historyCardHTML(e, true)).join('') :
-      '<div style="text-align:center;color:var(--text-dim);padding:20px;">데이터를 불러올 수 없습니다</div>';
+응답 형식:
+{
+  "world": [
+    {"year": "1969년", "text": "번역된 한국어 텍스트"}
+  ],
+  "korea": [
+    {"year": "1392년", "text": "조선이 건국되었다. 이성계가..."}
+  ]
+}`;
+
+    const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const apiData = await apiRes.json();
+    const rawText = (apiData.content||[]).map(c=>c.text||'').join('');
+    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('JSON parse fail');
+    const parsed = JSON.parse(jsonMatch[0]);
+
+    // 3. 세계 이벤트 — 번역본 + Wikipedia 이미지 결합
+    const worldItems = (parsed.world || []).map((item, i) => {
+      const raw = rawEvents[i] || {};
+      const key = raw.year + '_' + (raw.text||'').slice(0,20);
+      const meta = pageMap[key] || {};
+      return {
+        year: item.year || (raw.year ? (raw.year < 0 ? `기원전 ${Math.abs(raw.year)}년` : `${raw.year}년`) : ''),
+        text: item.text || '',
+        img: meta.img || '',
+        url: meta.url || '',
+      };
+    });
+
+    // 4. 한국 이벤트
+    const koreaItems = (parsed.korea || []).map(item => ({
+      year: item.year || '',
+      text: item.text || '',
+      img: '',
+      url: '',
+    }));
+
+    // 5. 렌더
+    const worldEl = document.getElementById('history-world');
+    const koreaEl = document.getElementById('history-korea');
+
+    worldEl.innerHTML = worldItems.length
+      ? worldItems.map(historyCardHTML).join('')
+      : '<div style="text-align:center;color:var(--text-dim);padding:20px;">데이터 없음</div>';
+
+    koreaEl.innerHTML = koreaItems.length
+      ? koreaItems.map(historyCardHTML).join('')
+      : '<div style="text-align:center;color:var(--text-dim);padding:20px;">데이터 없음</div>';
 
     document.getElementById('history-loading').style.display = 'none';
-    switchTab(_currentTab); // 현재 탭 표시
+    switchTab(_currentTab);
 
   } catch (err) {
     document.getElementById('history-loading').style.display = 'none';
     document.getElementById('history-error').style.display   = 'block';
+    console.error('history fetch error:', err);
   }
 }
 
