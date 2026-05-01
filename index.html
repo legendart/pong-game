@@ -728,6 +728,200 @@ function render(user) {
   fetchHistory();
 }
 
+// ══════════════════════════════════════════
+// ── 8. 오늘의 역사 ──
+// ══════════════════════════════════════════
+let _currentTab = 'world';
+
+function switchTab(tab) {
+  _currentTab = tab;
+  const wBtn=document.getElementById('tab-world');
+  const kBtn=document.getElementById('tab-korea');
+  const wEl=document.getElementById('history-world');
+  const kEl=document.getElementById('history-korea');
+  const on='flex:1;padding:8px;border-radius:10px;font-size:12px;font-family:\'Noto Sans KR\',sans-serif;cursor:pointer;border:1px solid var(--gold);background:rgba(201,168,76,.2);color:var(--gold-l);';
+  const off='flex:1;padding:8px;border-radius:10px;font-size:12px;font-family:\'Noto Sans KR\',sans-serif;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text-dim);';
+  if(tab==='world'){
+    wBtn.setAttribute('style',on); kBtn.setAttribute('style',off);
+    wEl.style.display='flex'; kEl.style.display='none';
+  } else {
+    kBtn.setAttribute('style',on); wBtn.setAttribute('style',off);
+    kEl.style.display='flex'; wEl.style.display='none';
+  }
+}
+
+function historyCardHTML(item) {
+  const imgHTML=item.img
+    ?`<img src="${item.img}" alt="" style="width:100%;height:160px;object-fit:cover;border-radius:12px 12px 0 0;display:block;" onerror="this.style.display='none'">`
+    :'';
+  const linkHTML=item.url
+    ?`<a href="${item.url}" target="_blank" rel="noopener" style="font-size:11px;color:var(--gold);text-decoration:none;display:inline-flex;align-items:center;gap:4px;margin-top:10px;">🔗 자세히 보기</a>`
+    :'';
+  return `<div style="background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:16px;overflow:hidden;">
+    ${imgHTML}<div style="padding:14px;">
+    <div style="display:inline-block;background:rgba(201,168,76,.15);border:1px solid rgba(201,168,76,.3);border-radius:8px;padding:3px 10px;font-size:11px;color:var(--gold);margin-bottom:10px;font-weight:600;">${item.year}</div>
+    <div style="font-family:'Noto Serif KR',serif;font-size:14px;line-height:1.9;color:var(--text);">${item.text}</div>
+    ${linkHTML}</div></div>`;
+}
+
+// fetch with timeout helper
+function fetchTimeout(url, opts={}, ms=8000) {
+  const controller = new AbortController();
+  const timer = setTimeout(()=>controller.abort(), ms);
+  return fetch(url, {...opts, signal:controller.signal})
+    .finally(()=>clearTimeout(timer));
+}
+
+async function fetchHistory() {
+  const now=new Date();
+  const m=now.getMonth()+1, d=now.getDate();
+  const label=document.getElementById('history-date-label');
+  if(label) label.textContent=`${m}월 ${d}일`;
+
+  document.getElementById('history-loading').style.display='block';
+  document.getElementById('history-error').style.display='none';
+  document.getElementById('history-world').style.display='none';
+  document.getElementById('history-korea').style.display='none';
+
+  try {
+    // ── 세계 이벤트: 영문 Wikipedia ──
+    let worldItems=[];
+    try {
+      const res = await fetchTimeout(
+        `https://en.wikipedia.org/api/rest_v1/feed/onthisday/events/${m}/${d}`,
+        {headers:{'Accept':'application/json'}}, 8000);
+      if(res.ok) {
+        const data=await res.json();
+        const events=(data.events||[])
+          .sort((a,b)=>(b.pages||[]).some(p=>p.thumbnail)-(a.pages||[]).some(p=>p.thumbnail))
+          .slice(0,8);
+
+        // 배치 langlinks → 한국어 제목
+        const titles=events.map(ev=>(ev.pages||[])[0]?.title||'').filter(Boolean);
+        let koTitleMap={};
+        if(titles.length) {
+          try {
+            const lr=await fetchTimeout(
+              `https://en.wikipedia.org/w/api.php?action=query&titles=${titles.map(encodeURIComponent).join('|')}&prop=langlinks&lllang=ko&format=json&origin=*`,
+              {}, 6000);
+            if(lr.ok){
+              const ld=await lr.json();
+              Object.values(ld.query?.pages||{}).forEach(p=>{
+                const kt=p.langlinks?.[0]?.['*'];
+                if(p.title&&kt) koTitleMap[p.title]=kt;
+              });
+            }
+          } catch(e){}
+        }
+
+        // 한국어 요약 병렬 수집
+        const koMap={};
+        await Promise.allSettled(Object.entries(koTitleMap).map(async([et,kt])=>{
+          try {
+            const sr=await fetchTimeout(
+              `https://ko.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(kt)}`,
+              {}, 6000);
+            if(sr.ok){
+              const sd=await sr.json();
+              const txt=sd.extract||'';
+              koMap[et]={text:txt.length>220?txt.slice(0,220)+'…':txt, url:sd.content_urls?.mobile?.page||sd.content_urls?.desktop?.page||''};
+            }
+          } catch(e){}
+        }));
+
+        worldItems=events.map(ev=>{
+          const page=(ev.pages||[])[0]||{};
+          const et=page.title||'';
+          const ko=koMap[et];
+          const yr=ev.year<0?`기원전 ${Math.abs(ev.year)}년`:`${ev.year}년`;
+          return {
+            year:yr,
+            text:ko?.text||ev.text||'',
+            img:page.thumbnail?.source||'',
+            url:ko?.url||page.content_urls?.mobile?.page||page.content_urls?.desktop?.page||''
+          };
+        });
+      }
+    } catch(e){ console.warn('world fetch error:',e); }
+
+    // ── 한국 이벤트: 한국어 Wikipedia → 없으면 영문에서 Korea 필터 ──
+    let koreaItems=[];
+    try {
+      const kr=await fetchTimeout(
+        `https://ko.wikipedia.org/api/rest_v1/feed/onthisday/events/${m}/${d}`,
+        {headers:{'Accept':'application/json'}}, 8000);
+      if(kr.ok){
+        const kd=await kr.json();
+        koreaItems=(kd.events||[])
+          .sort((a,b)=>(b.pages||[]).some(p=>p.thumbnail)-(a.pages||[]).some(p=>p.thumbnail))
+          .slice(0,7)
+          .map(ev=>{
+            const page=(ev.pages||[])[0]||{};
+            return {
+              year:ev.year<0?`기원전 ${Math.abs(ev.year)}년`:`${ev.year}년`,
+              text:ev.text||'', img:page.thumbnail?.source||'',
+              url:page.content_urls?.mobile?.page||''
+            };
+          });
+      }
+    } catch(e){ console.warn('korea fetch error:',e); }
+
+    // 한국 이벤트 없으면 영문 Wikipedia에서 Korea/Korean 관련 필터
+    if(!koreaItems.length && worldItems.length) {
+      try {
+        const res2=await fetchTimeout(
+          `https://en.wikipedia.org/api/rest_v1/feed/onthisday/events/${m}/${d}`,
+          {headers:{'Accept':'application/json'}}, 8000);
+        if(res2.ok){
+          const d2=await res2.json();
+          const koRelated=(d2.events||[])
+            .filter(ev=>{
+              const t=(ev.text||'').toLowerCase();
+              const cats=(ev.pages||[]).flatMap(p=>(p.categories||[]).map(c=>c.titles?.canonical||''));
+              return t.includes('korea')||t.includes('korean')||
+                cats.some(c=>c.toLowerCase().includes('korea'));
+            }).slice(0,6);
+
+          // 한국어 요약 가져오기 시도
+          await Promise.allSettled(koRelated.map(async(ev)=>{
+            const page=(ev.pages||[])[0]||{};
+            const et=page.title||'';
+            const kt=koTitleMap?.[et];
+            let text=ev.text||'', url='';
+            if(kt){
+              try{
+                const sr=await fetchTimeout(`https://ko.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(kt)}`,{},5000);
+                if(sr.ok){const sd=await sr.json();text=sd.extract||text;url=sd.content_urls?.mobile?.page||'';}
+              }catch(e){}
+            }
+            koreaItems.push({
+              year:ev.year<0?`기원전 ${Math.abs(ev.year)}년`:`${ev.year}년`,
+              text,img:page.thumbnail?.source||'',url
+            });
+          }));
+        }
+      } catch(e){}
+    }
+
+    // 렌더링
+    document.getElementById('history-world').innerHTML=worldItems.length
+      ?worldItems.map(historyCardHTML).join('')
+      :'<div style="text-align:center;color:var(--text-dim);padding:30px;">이 날의 세계 이벤트가 없습니다</div>';
+
+    document.getElementById('history-korea').innerHTML=koreaItems.length
+      ?koreaItems.map(historyCardHTML).join('')
+      :'<div style="text-align:center;color:var(--text-dim);padding:30px;">이 날의 한국 이벤트가 없습니다</div>';
+
+    document.getElementById('history-loading').style.display='none';
+    switchTab(_currentTab);
+
+  } catch(err) {
+    console.error('fetchHistory error:',err);
+    document.getElementById('history-loading').style.display='none';
+    document.getElementById('history-error').style.display='block';
+  }
+}
+
 function saveAndRender() {
   const name=(document.getElementById('i-name').value||'').trim()||'이동언';
   const birth=document.getElementById('i-birth').value;
