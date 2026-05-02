@@ -5,6 +5,7 @@ import visitorsRouter from './routes/visitors.js';
 import historyRouter  from './routes/history.js';
 import fortuneRouter  from './routes/fortune.js';
 import usersRouter    from './routes/users.js';
+import adminRouter    from './routes/admin.js';
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -53,6 +54,7 @@ app.use('/api/visitors', visitorsRouter);
 app.use('/api/history',  historyRouter);
 app.use('/api/fortune',  fortuneRouter);
 app.use('/api/users',    usersRouter);
+app.use('/api/admin',    adminRouter);
 
 // ── 헬스체크 ──
 app.get('/api/health', (_req, res) => {
