@@ -392,6 +392,14 @@ function generateDadMsg(bd, r) {
   const ag = p[ageGroup] || p.thirty;
 
   const pick = (arr) => arr[Math.floor(r() * arr.length)];
+  // 받침 있으면 '은', 없으면 '는' / 받침 있으면 '이', 없으면 '가'
+  const josa = (word, jong, no) => {
+    const code = word.charCodeAt(word.length - 1);
+    if (code < 0xAC00 || code > 0xD7A3) return word + jong;
+    return word + ((code - 0xAC00) % 28 !== 0 ? jong : no);
+  };
+  const eun = (w) => josa(w, '은', '는');
+  const i = (w) => josa(w, '이', '가');
 
   // 템플릿 풀 - 각 나이대 공통 + 아빠 특유 패턴
   const templates = [
@@ -409,7 +417,7 @@ function generateDadMsg(bd, r) {
     () => `아빠 ${pick(p.comeHome)}`,
     () => `아빠 ${pick(p.comeHome)} 밥 먹었어?`,
     // 조언/격려 시리즈
-    () => `${pick(ag.subject)}은 ${pick(ag.advice)}`,
+    () => `${eun(pick(ag.subject))} ${pick(ag.advice)}`,
     () => `${pick(ag.subject)}? ${pick(ag.advice)}`,
     () => `${pick(ag.advice)} ${pick(ag.cheer)}`,
     // 걱정 시리즈
