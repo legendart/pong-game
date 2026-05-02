@@ -986,6 +986,7 @@ async function fetchHistory() {
   try {
     // ── 세계 이벤트: 영문 Wikipedia ──
     let worldItems=[];
+    let koTitleMap={};  // 스코프 상위로 (Korea fallback에서도 사용)
     try {
       const res = await fetchTimeout(
         `https://en.wikipedia.org/api/rest_v1/feed/onthisday/events/${m}/${d}`,
@@ -1724,17 +1725,7 @@ function nextHumor() {
 
 
 
-function renderHumor(seed) {
-  const joke = HUMOR_LIST[Math.abs(seed) % HUMOR_LIST.length];
-  _humorRevealed = false;
-  document.getElementById('humor-setup').innerHTML = joke.setup.replace(/\n/g, '<br>');
-  document.getElementById('humor-punchline').textContent = joke.punchline;
-  document.getElementById('humor-punchline-wrap').style.display = 'none';
-  document.getElementById('humor-reaction').style.display = 'none';
-  document.getElementById('humor-reaction').textContent = joke.reaction;
-  const btn = document.getElementById('humor-btn');
-  if (btn) { btn.style.display = 'inline-block'; btn.textContent = '🤔 정답 보기'; }
-}
+
 
 function revealPunchline() {
   document.getElementById('humor-punchline-wrap').style.display = 'block';
