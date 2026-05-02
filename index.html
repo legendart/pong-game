@@ -136,7 +136,9 @@ canvas{display:block;max-width:100%;}
         <option value="10">술시 (戌) 19:00–21:00</option><option value="11">해시 (亥) 21:00–23:00</option>
       </select>
     </div>
-    <button class="btn-go" onclick="saveAndRender()">✨ 나의 사주 보기</button>
+    <div id="modal-status" style="font-size:12px;color:var(--text-dim);margin-bottom:10px;min-height:18px;text-align:center;"></div>
+    <button class="btn-go" id="btn-save" onclick="saveAndRender()">✨ 나의 사주 보기</button>
+    <button onclick="skipSave()" style="width:100%;margin-top:8px;padding:10px;background:transparent;border:1px solid rgba(255,255,255,.1);border-radius:12px;color:var(--text-dim);font-size:13px;font-family:'Noto Sans KR',sans-serif;cursor:pointer;">저장 없이 보기</button>
   </div>
 </div>
 
@@ -186,7 +188,10 @@ canvas{display:block;max-width:100%;}
   <div style="display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:18px;padding:14px 16px;margin-bottom:18px;">
     <div id="p-avatar" style="font-size:38px;"></div>
     <div style="flex:1;"><div id="p-name" style="font-size:16px;font-weight:500;color:var(--gold-l);"></div><div id="p-birth" style="font-size:12px;color:var(--text-dim);margin-top:3px;"></div></div>
-    <button onclick="reset()" style="font-size:11px;color:var(--text-dim);background:none;border:1px solid var(--border);border-radius:8px;padding:5px 10px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">재설정</button>
+    <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
+      <button onclick="reset()" style="font-size:11px;color:var(--text-dim);background:none;border:1px solid var(--border);border-radius:8px;padding:5px 10px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">재설정</button>
+      <div id="profile-status"></div>
+    </div>
   </div>
 
   <!-- 기운 배너 -->
@@ -1336,19 +1341,87 @@ async function fetchHistory() {
   }
 }
 
-function saveAndRender() {
+// ── 사용자 DB 저장/로드 ──
+const LS_USER_KEY='saju_user', LS_DEVICE_KEY='saju_device_id';
+
+function getDeviceId(){
+  let id=localStorage.getItem(LS_DEVICE_KEY);
+  if(!id){id='dev_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8);localStorage.setItem(LS_DEVICE_KEY,id);}
+  return id;
+}
+function getBackendURL(){ return localStorage.getItem('javis_backend_url'); }
+
+async function dbSaveUser(name,birth,hour){
+  const base=getBackendURL(); if(!base)return null;
+  try{
+    const r=await fetch(`${base}/api/users`,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({deviceId:getDeviceId(),name,birth,hour:parseInt(hour)}),signal:AbortSignal.timeout(5000)});
+    const d=await r.json(); return d.ok?d.user:null;
+  }catch{return null;}
+}
+async function dbLoadUser(){
+  const base=getBackendURL(); if(!base)return null;
+  try{
+    const r=await fetch(`${base}/api/users/${encodeURIComponent(getDeviceId())}`,{signal:AbortSignal.timeout(5000)});
+    if(!r.ok)return null; const d=await r.json(); return d.ok?d.user:null;
+  }catch{return null;}
+}
+async function dbDeleteUser(){
+  const base=getBackendURL(); if(!base)return;
+  try{await fetch(`${base}/api/users/${encodeURIComponent(getDeviceId())}`,{method:'DELETE',signal:AbortSignal.timeout(5000)});}catch{}
+}
+
+function showToast(msg,ok=true){
+  const e=document.getElementById('save-badge'); if(e)e.remove();
+  const t=document.createElement('div'); t.id='save-badge';
+  t.style.cssText=`position:fixed;bottom:24px;left:50%;transform:translateX(-50%);`+
+    `background:${ok?'linear-gradient(135deg,rgba(201,168,76,.95),rgba(139,94,26,.95))':'rgba(60,60,80,.95)'};`+
+    `color:${ok?'#07040f':'#fff'};font-size:13px;font-weight:600;`+
+    `padding:10px 22px;border-radius:50px;box-shadow:0 4px 20px rgba(0,0,0,.3);`+
+    `z-index:9999;white-space:nowrap;font-family:'Noto Sans KR',sans-serif;transition:opacity .5s;`;
+  t.textContent=msg; document.body.appendChild(t);
+  setTimeout(()=>{t.style.opacity='0';},2500); setTimeout(()=>{t.remove();},3100);
+}
+function setModalStatus(msg,loading=false){
+  const e=document.getElementById('modal-status');
+  if(e)e.innerHTML=loading?`<span style="color:var(--gold);">${msg}</span>`:`<span style="color:var(--text-dim);">${msg}</span>`;
+}
+function setProfileStatus(src){
+  const e=document.getElementById('profile-status'); if(!e)return;
+  e.innerHTML=`<span style="font-size:10px;color:var(--text-dim);">${src==='db'?'☁️ DB 저장됨':'💾 로컬 저장됨'}</span>`;
+}
+
+async function saveAndRender(){
   const name=(document.getElementById('i-name').value||'').trim()||'이경민';
   const birth=document.getElementById('i-birth').value;
   const hour=document.getElementById('i-hour').value;
   if(!birth){alert('생년월일을 입력해주세요 🙏');return;}
   const user={name,birth,hour};
-  try{localStorage.setItem('saju_user',JSON.stringify(user));}catch(e){}
-  render(user);
+  const btn=document.getElementById('btn-save');
+  if(btn){btn.disabled=true;btn.textContent='저장 중...';}
+  setModalStatus('저장 중...', true);
+  try{localStorage.setItem(LS_USER_KEY,JSON.stringify(user));}catch{}
+  const dbUser=await dbSaveUser(name,birth,hour);
+  if(dbUser){showToast('☁️ DB에 저장되었어요!');}else{showToast('💾 기기에 저장되었어요');}
+  if(btn){btn.disabled=false;btn.textContent='✨ 나의 사주 보기';}
+  render(user); setProfileStatus(dbUser?'db':'local');
 }
-function reset() {
-  try{localStorage.removeItem('saju_user');}catch(e){}
+
+function skipSave(){
+  const name=(document.getElementById('i-name').value||'').trim()||'이경민';
+  const birth=document.getElementById('i-birth').value;
+  const hour=document.getElementById('i-hour').value;
+  if(!birth){alert('생년월일을 입력해주세요 🙏');return;}
+  render({name,birth,hour});
+}
+
+async function reset(){
+  try{localStorage.removeItem(LS_USER_KEY);}catch{}
+  await dbDeleteUser();
   document.getElementById('modal').classList.remove('hide');
   document.getElementById('app').style.display='none';
+  setModalStatus('');
+  showToast('프로필이 초기화되었어요', false);
 }
 
 // ── 시작 ──
@@ -2051,8 +2124,32 @@ function initVisitorCounter() {
 
 
 const DEFAULT_USER={name:'이경민',birth:'2009-01-19',hour:'8'};
-(function(){
-  try{const s=localStorage.getItem('saju_user');if(s){render(JSON.parse(s));return;}}catch(e){}
+
+// ── 앱 시작: DB → localStorage → 기본값 순으로 로드 ──
+(async function init(){
+  setModalStatus('이전 정보를 불러오는 중...', true);
+
+  // 1. 백엔드 DB에서 로드 시도
+  const dbUser = await dbLoadUser();
+  if(dbUser){
+    const user={name:dbUser.name, birth:dbUser.birth, hour:String(dbUser.hour)};
+    try{localStorage.setItem(LS_USER_KEY,JSON.stringify(user));}catch{}
+    render(user); setProfileStatus('db');
+    showToast('☁️ 저장된 정보로 사주를 불러왔어요!');
+    return;
+  }
+
+  // 2. localStorage 폴백
+  try{
+    const raw=localStorage.getItem(LS_USER_KEY);
+    if(raw){
+      const user=JSON.parse(raw);
+      if(user.birth){ render(user); setProfileStatus('local'); return; }
+    }
+  }catch{}
+
+  // 3. 첫 방문 → 모달 표시
+  setModalStatus('처음 오셨군요! 정보를 입력하면 다음에도 기억해요 🌟');
   render(DEFAULT_USER);
 })();
 </script>

@@ -38,6 +38,20 @@ export async function getVisitorStats() {
   return apiFetch('/api/visitors/stats');
 }
 
+// ── 사용자 프로필 API ──
+export async function getUser(deviceId) {
+  return apiFetch(`/api/users/${encodeURIComponent(deviceId)}`);
+}
+export async function saveUser(deviceId, name, birth, hour) {
+  return apiFetch('/api/users', {
+    method: 'POST',
+    body: JSON.stringify({ deviceId, name, birth, hour }),
+  });
+}
+export async function deleteUser(deviceId) {
+  return apiFetch(`/api/users/${encodeURIComponent(deviceId)}`, { method: 'DELETE' });
+}
+
 // ── 헬스체크 ──
 export async function checkHealth() {
   return apiFetch('/api/health');
