@@ -312,6 +312,40 @@ canvas{display:block;max-width:100%;}
     <div id="humor-reaction" style="display:none;text-align:center;margin-top:12px;font-size:24px;animation:pulse 1s ease-in-out 3;"></div>
   </div>
 
+  <!-- 방문자 카운터 -->
+  <div style="background:linear-gradient(135deg,rgba(100,60,200,.08),rgba(201,168,76,.06));border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:18px 20px;margin-bottom:14px;text-align:center;">
+    <div style="font-size:11px;color:var(--gold);letter-spacing:1px;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:6px;">
+      👥 방문자 현황
+      <span style="flex:1;height:1px;background:linear-gradient(90deg,transparent,rgba(201,168,76,.3),transparent);display:block;"></span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+      <!-- 총 방문 -->
+      <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:14px 8px;">
+        <div style="font-size:22px;margin-bottom:4px;">🌍</div>
+        <div id="vc-total" style="font-size:22px;font-weight:700;color:var(--gold-l);font-family:'Noto Serif KR',serif;line-height:1;">-</div>
+        <div style="font-size:10px;color:var(--text-dim);margin-top:4px;letter-spacing:.5px;">총 방문</div>
+      </div>
+      <!-- 오늘 방문 -->
+      <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:14px 8px;">
+        <div style="font-size:22px;margin-bottom:4px;">📅</div>
+        <div id="vc-today" style="font-size:22px;font-weight:700;color:var(--gold-l);font-family:'Noto Serif KR',serif;line-height:1;">-</div>
+        <div style="font-size:10px;color:var(--text-dim);margin-top:4px;letter-spacing:.5px;">오늘 방문</div>
+      </div>
+      <!-- 연속 방문일 -->
+      <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:14px 8px;">
+        <div style="font-size:22px;margin-bottom:4px;">🔥</div>
+        <div id="vc-streak" style="font-size:22px;font-weight:700;color:var(--gold-l);font-family:'Noto Serif KR',serif;line-height:1;">-</div>
+        <div style="font-size:10px;color:var(--text-dim);margin-top:4px;letter-spacing:.5px;">연속 방문일</div>
+      </div>
+    </div>
+    <!-- 온라인 카운터 (외부 API) -->
+    <div style="margin-top:12px;display:flex;align-items:center;justify-content:center;gap:8px;">
+      <img id="vc-badge" src="" alt="visitor count" style="height:20px;border-radius:4px;opacity:0;transition:opacity .4s;" onload="this.style.opacity='1'" onerror="this.style.display='none'">
+      <span id="vc-badge-label" style="font-size:10px;color:var(--text-dim);display:none;">실시간 전체 방문자</span>
+    </div>
+    <div id="vc-msg" style="font-size:12px;color:var(--text-dim);margin-top:8px;"></div>
+  </div>
+
   <!-- 푸터 -->
   <div style="text-align:center;padding-top:10px;"><div style="font-size:11px;color:var(--text-dim);">☯ Javis · 오늘도 좋은 하루 되세요</div></div>
 
@@ -1099,6 +1133,9 @@ function render(user) {
   // 유머
   const humorSeed=now.getFullYear()*10000+(now.getMonth()+1)*100+now.getDate()+bd.getTime()%541;
   renderHumor(humorSeed);
+
+  // 방문자 카운터
+  initVisitorCounter();
 
   // 역사 이벤트 비동기 로딩
   fetchHistory();
@@ -1910,6 +1947,108 @@ function revealPunchline() {
   const btn = document.getElementById('humor-btn');
   if (btn) btn.style.display = 'none';
 }
+
+
+// ══════════════════════════════════════════
+// ── 방문자 카운터 시스템 ──
+// localStorage: 개인 방문 기록 (정확)
+// CountAPI / hits API: 전체 방문자 (공유)
+// ══════════════════════════════════════════
+function initVisitorCounter() {
+  const today = new Date().toISOString().slice(0,10); // YYYY-MM-DD
+  const LS_KEY = 'javis_visitor';
+
+  // localStorage에서 개인 방문 데이터 로드
+  let data;
+  try {
+    data = JSON.parse(localStorage.getItem(LS_KEY) || '{}');
+  } catch(e) { data = {}; }
+
+  // 초기화
+  if (!data.total)      data.total = 0;
+  if (!data.lastDate)   data.lastDate = '';
+  if (!data.streak)     data.streak = 0;
+  if (!data.todayCount) data.todayCount = 0;
+  if (!data.firstVisit) data.firstVisit = today;
+
+  // 날짜 비교
+  const isNewDay = data.lastDate !== today;
+  if (isNewDay) {
+    // 연속 방문 계산
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yd = yesterday.toISOString().slice(0,10);
+    data.streak = (data.lastDate === yd) ? data.streak + 1 : 1;
+    data.todayCount = 0;
+    data.lastDate = today;
+  }
+
+  // 카운트 증가
+  data.total += 1;
+  data.todayCount += 1;
+
+  // 저장
+  try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch(e) {}
+
+  // 숫자 애니메이션 렌더
+  function animateNum(el, target) {
+    if (!el) return;
+    const dur = 800, steps = 30;
+    const start = parseInt(el.textContent) || 0;
+    const inc = (target - start) / steps;
+    let cur = start, step = 0;
+    const t = setInterval(() => {
+      step++;
+      cur += inc;
+      el.textContent = Math.round(cur).toLocaleString();
+      if (step >= steps) { el.textContent = target.toLocaleString(); clearInterval(t); }
+    }, dur / steps);
+  }
+
+  // DOM 업데이트 (약간 딜레이로 애니메이션 효과)
+  setTimeout(() => {
+    animateNum(document.getElementById('vc-total'),  data.total);
+    animateNum(document.getElementById('vc-today'),  data.todayCount);
+    animateNum(document.getElementById('vc-streak'), data.streak);
+
+    // 방문 메시지
+    const msgEl = document.getElementById('vc-msg');
+    if (msgEl) {
+      const msgs = [
+        `첫 방문일: ${data.firstVisit} 🗓️`,
+        data.streak >= 7  ? `🔥 ${data.streak}일 연속 방문 중! 대단한 열정!` :
+        data.streak >= 3  ? `🔥 ${data.streak}일 연속 방문 중! 잘하고 있어요!` :
+        data.streak >= 2  ? '이틀 연속 방문이네요! 좋은 습관이에요 😊' :
+        isNewDay ? '오늘 첫 방문이에요! 어서오세요 🌟' : '오늘도 다시 방문했네요! 😄',
+      ];
+      msgEl.textContent = data.streak >= 2 ? msgs[1] : msgs[msgs.length - 1];
+    }
+  }, 300);
+
+  // 외부 카운터 API (hits.seeyoufarm.com - CORS 허용)
+  const badgeEl = document.getElementById('vc-badge');
+  const labelEl = document.getElementById('vc-badge-label');
+  if (badgeEl) {
+    // hits.seeyoufarm.com 배지 (실시간 전체 방문자, 백엔드 불필요)
+    badgeEl.src = 'https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Flegendart.github.io%2Fpong-game&count_bg=%23C9A84C&title_bg=%23160B2C&icon=star.svg&icon_color=%23F0D080&title=total&edge_flat=true';
+    if (labelEl) labelEl.style.display = 'inline';
+  }
+
+  // CountAPI (CORS 허용 - 브라우저에서만 동작)
+  fetch('https://api.countapi.xyz/hit/legendart-javis/pong-game')
+    .then(r => r.json())
+    .then(d => {
+      const totalEl = document.getElementById('vc-total');
+      if (totalEl && d.value > data.total) {
+        // API 카운트가 더 크면 그쪽을 표시
+        animateNum(totalEl, d.value);
+        data.total = d.value;
+        try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch(e) {}
+      }
+    })
+    .catch(() => {}); // 실패해도 localStorage 값으로 표시됨
+}
+
 
 const DEFAULT_USER={name:'이경민',birth:'2009-01-19',hour:'8'};
 (function(){
