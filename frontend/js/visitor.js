@@ -1,5 +1,6 @@
 // ── 방문자 카운터 모듈 ──
 import { hitVisitor, getVisitorStats, HAS_BACKEND } from './api.js';
+import { getDeviceId } from './user.js';
 
 const LS_KEY = 'javis_visitor';
 
@@ -72,7 +73,8 @@ export async function initVisitorCounter() {
   // 백엔드 DB 업데이트 (가능하면)
   if (HAS_BACKEND) {
     try {
-      const result = await hitVisitor();
+      const deviceId = getDeviceId();
+      const result = await hitVisitor(deviceId);
       if (result.ok && result.total > data.total) {
         animateNum(document.getElementById('vc-total'), result.total);
         data.total = result.total;

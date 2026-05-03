@@ -16,12 +16,31 @@ const run  = (sql, params=[]) => new Promise((res,rej)=>db.run(sql,params,functi
 const get  = (sql, params=[]) => new Promise((res,rej)=>db.get(sql,params,(e,r)=>e?rej(e):res(r)));
 const all  = (sql, params=[]) => new Promise((res,rej)=>db.all(sql,params,(e,r)=>e?rej(e):res(r)));
 
+// User-Agent 파싱 함수
+function parseUserAgent(ua) {
+  const uaLower = ua.toLowerCase();
+  let device_type = 'desktop';
+  if (uaLower.includes('mobile') || uaLower.includes('android') || uaLower.includes('iphone')) {
+    device_type = 'mobile';
+  }
+  let browser = 'Unknown';
+  if (uaLower.includes('chrome')) browser = 'Chrome';
+  else if (uaLower.includes('firefox')) browser = 'Firefox';
+  else if (uaLower.includes('safari') && !uaLower.includes('chrome')) browser = 'Safari';
+  else if (uaLower.includes('edge')) browser = 'Edge';
+  else if (uaLower.includes('opera')) browser = 'Opera';
+  return { device_type, browser };
+}
+
 // 초기 테이블 생성
 await run(`CREATE TABLE IF NOT EXISTS visits (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   date TEXT NOT NULL,
   ip TEXT,
   user_agent TEXT,
+  device_type TEXT,
+  browser TEXT,
+  device_id TEXT,
   created_at TEXT DEFAULT (datetime('now', 'localtime'))
 )`);
 await run(`CREATE TABLE IF NOT EXISTS daily_stats (
@@ -34,6 +53,11 @@ await run(`CREATE TABLE IF NOT EXISTS total_stats (
 )`);
 await run(`INSERT OR IGNORE INTO total_stats (key, value) VALUES ('total', 0)`);
 
+// 기존 테이블에 새 컬럼 추가 (호환성)
+await run(`ALTER TABLE visits ADD COLUMN device_type TEXT`).catch(() => {});
+await run(`ALTER TABLE visits ADD COLUMN browser TEXT`).catch(() => {});
+await run(`ALTER TABLE visits ADD COLUMN device_id TEXT`).catch(() => {});
+
 const router = express.Router();
 
 // POST /api/visitors/hit
@@ -42,8 +66,10 @@ router.post('/hit', async (req, res) => {
     const today = new Date().toISOString().slice(0, 10);
     const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').slice(0, 45);
     const ua = (req.headers['user-agent'] || '').slice(0, 200);
+    const { device_type, browser } = parseUserAgent(ua);
+    const device_id = req.body.deviceId || null;
 
-    await run(`INSERT INTO visits (date, ip, user_agent) VALUES (?, ?, ?)`, [today, ip, ua]);
+    await run(`INSERT INTO visits (date, ip, user_agent, device_type, browser, device_id) VALUES (?, ?, ?, ?, ?, ?)`, [today, ip, ua, device_type, browser, device_id]);
     await run(`INSERT INTO daily_stats (date, count) VALUES (?, 1)
                ON CONFLICT(date) DO UPDATE SET count = count + 1`, [today]);
     await run(`UPDATE total_stats SET value = value + 1 WHERE key = 'total'`);

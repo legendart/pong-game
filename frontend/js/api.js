@@ -31,8 +31,11 @@ export async function fetchHistory(month, day) {
 }
 
 // ── 방문자 API ──
-export async function hitVisitor() {
-  return apiFetch('/api/visitors/hit', { method: 'POST' });
+export async function hitVisitor(deviceId = null) {
+  return apiFetch('/api/visitors/hit', { 
+    method: 'POST',
+    body: JSON.stringify({ deviceId })
+  });
 }
 export async function getVisitorStats() {
   return apiFetch('/api/visitors/stats');

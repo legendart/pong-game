@@ -8,6 +8,7 @@ import historyRouter  from './routes/history.js';
 import fortuneRouter  from './routes/fortune.js';
 import usersRouter    from './routes/users.js';
 import adminRouter    from './routes/admin.js';
+import contentRouter  from './routes/content.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FRONTEND  = join(__dirname, '../frontend');
@@ -65,6 +66,7 @@ app.use('/api/history',  historyRouter);
 app.use('/api/fortune',  fortuneRouter);
 app.use('/api/users',    usersRouter);
 app.use('/api/admin',    adminRouter);
+app.use('/api/content',  contentRouter);
 
 // ── 헬스체크 ──
 app.get('/api/health', (_req, res) => {

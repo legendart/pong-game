@@ -1,14 +1,39 @@
 // ── 별자리 모듈 ──
+import { API_BASE, HAS_BACKEND } from './config.js';
+
+// 캐시
+let ZODIAC_CACHE = null;
+
+// API에서 별자리 데이터 로드
+async function loadZodiacData() {
+  if (!HAS_BACKEND) return null;
+  if (ZODIAC_CACHE) return ZODIAC_CACHE;
+  try {
+    const res = await fetch(`${API_BASE}/api/content/zodiac`);
+    if (!res.ok) throw new Error('Failed to load zodiac data');
+    const data = await res.json();
+    ZODIAC_CACHE = data.data;
+    return ZODIAC_CACHE;
+  } catch (e) {
+    console.warn('Failed to load zodiac from API:', e);
+    return null;
+  }
+}
 
 // ── 별자리 ──
-function getZodiac(bd) {
-  const m=bd.getMonth()+1, d=bd.getDate();
-  for (const z of ZODIAC) {
-    const [fm,fd]=z.from,[tm,td]=z.to;
-    if (fm>tm) { if((m===fm&&d>=fd)||(m===tm&&d<=td)) return z; }
-    else { if((m===fm&&d>=fd)||(m>fm&&m<tm)||(m===tm&&d<=td)) return z; }
+async function getZodiac(bd) {
+  const zodiacData = await loadZodiacData();
+  if (!zodiacData) return null; // fallback needed
+  const m = bd.getMonth() + 1, d = bd.getDate();
+  for (const z of zodiacData) {
+    const fm = z.from_month, fd = z.from_day, tm = z.to_month, td = z.to_day;
+    if (fm > tm) {
+      if ((m === fm && d >= fd) || (m === tm && d <= td)) return z;
+    } else {
+      if ((m === fm && d >= fd) || (m > fm && m < tm) || (m === tm && d <= td)) return z;
+    }
   }
-  return ZODIAC[11];
+  return zodiacData[11];
 }
 
 // ── 운세 텍스트 생성 ──
