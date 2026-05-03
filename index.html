@@ -352,7 +352,17 @@ canvas{display:block;max-width:100%;}
   </div>
 
   <!-- 푸터 -->
-  <div style="text-align:center;padding-top:10px;"><div style="font-size:11px;color:var(--text-dim);">☯ Javis · 오늘도 좋은 하루 되세요</div></div>
+  <div style="text-align:center;padding-top:10px;">
+    <div style="font-size:11px;color:var(--text-dim);">☯ Javis · 오늘도 좋은 하루 되세요</div>
+    <div style="margin-top:16px;">
+      <a id="admin-link" href="#" target="_blank"
+        style="font-size:10px;color:rgba(255,255,255,.15);text-decoration:none;padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.06);transition:all .3s;"
+        onmouseover="this.style.color='rgba(201,168,76,.5)';this.style.borderColor='rgba(201,168,76,.2)'"
+        onmouseout="this.style.color='rgba(255,255,255,.15)';this.style.borderColor='rgba(255,255,255,.06)'">
+        ⚙️ 관리자
+      </a>
+    </div>
+  </div>
 
 </div><!-- /app -->
 
@@ -1134,6 +1144,13 @@ function render(user) {
 
   document.getElementById('modal').classList.add('hide');
   document.getElementById('app').style.display='block';
+
+  // 관리자 링크 URL 설정
+  const adminLink = document.getElementById('admin-link');
+  if (adminLink) {
+    const base = getBackendURL() || 'http://localhost:3000';
+    adminLink.href = base + '/admin/';
+  }
 
   // 유머
   const humorSeed=now.getFullYear()*10000+(now.getMonth()+1)*100+now.getDate()+bd.getTime()%541;

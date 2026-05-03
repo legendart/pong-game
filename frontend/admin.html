@@ -314,7 +314,15 @@ tr:hover td{background:rgba(255,255,255,.025);}
 // ── 설정 ──
 // ══════════════════════════════════════════
 let TOKEN = '';
-let BASE_URL = localStorage.getItem('javis_admin_url') || localStorage.getItem('javis_backend_url') || 'http://localhost:3000';
+// same-origin이면 '' 사용 (서버에서 직접 서빙 시), 아니면 로컬스토리지에서 읽기
+let BASE_URL = (() => {
+  const saved = localStorage.getItem('javis_admin_url') || localStorage.getItem('javis_backend_url');
+  if (saved) return saved.replace(/\/$/, '');
+  // file:// 프로토콜이면 localhost:3000 기본값
+  if (location.protocol === 'file:') return 'http://localhost:3000';
+  // http://에서 열렸으면 same-origin (포트만 3000으로 맞춤)
+  return location.origin.replace(/:(\d+)$/, ':3000').replace(/^(https?:\/\/[^:]+)$/, '$1:3000');
+})();
 let currentPage = { visitors: 0, users: 0, fortuneLogs: 0 };
 const PAGE_SIZE = 30;
 
@@ -638,7 +646,7 @@ function saveBackendURL() {
   localStorage.setItem('javis_admin_url', url);
   localStorage.setItem('javis_backend_url', url);
   document.getElementById('server-url-label').textContent = url.replace('http://', '');
-  toast('백엔드 URL이 저장되었습니다. 새로고침합니다...');
+  toast('백엔드 URL이 저장되었습니다! 새로고침합니다...');
   setTimeout(() => location.reload(), 1200);
 }
 

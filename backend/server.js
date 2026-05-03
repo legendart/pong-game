@@ -1,11 +1,16 @@
 import express from 'express';
 import cors from 'cors';
 import os from 'os';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import visitorsRouter from './routes/visitors.js';
 import historyRouter  from './routes/history.js';
 import fortuneRouter  from './routes/fortune.js';
 import usersRouter    from './routes/users.js';
 import adminRouter    from './routes/admin.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const FRONTEND  = join(__dirname, '../frontend');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -48,6 +53,11 @@ app.use((req, _res, next) => {
   console.log(`[${ts}] ${req.method} ${req.path} ${req.ip || ''}`);
   next();
 });
+
+// ── 정적 파일 (admin.html 서빙) ──
+app.use('/admin', express.static(FRONTEND));
+app.get('/admin', (_req, res) => res.sendFile(join(FRONTEND, 'admin.html')));
+app.get('/admin/', (_req, res) => res.sendFile(join(FRONTEND, 'admin.html')));
 
 // ── 라우터 ──
 app.use('/api/visitors', visitorsRouter);
