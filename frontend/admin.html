@@ -157,6 +157,10 @@ tr:hover td{background:rgba(255,255,255,.025);}
     <div class="nav-item" onclick="goto('visitors')"><span class="icon">👥</span>방문자 관리</div>
     <div class="nav-item" onclick="goto('users')"><span class="icon">👤</span>사용자 관리</div>
     <div class="nav-item" onclick="goto('fortune-logs')"><span class="icon">🔯</span>사주 조회 로그</div>
+    <div class="nav-section">컨텐츠 관리</div>
+    <div class="nav-item" onclick="goto('content-jokes')"><span class="icon">😂</span>아재개그</div>
+    <div class="nav-item" onclick="goto('content-cheer')"><span class="icon">💌</span>응원 메시지</div>
+    <div class="nav-item" onclick="goto('content-food')"><span class="icon">🍽️</span>음식 추천</div>
     <div class="nav-section">시스템</div>
     <div class="nav-item" onclick="goto('settings')"><span class="icon">⚙️</span>설정</div>
     <div class="nav-item" onclick="goto('server')"><span class="icon">🖥️</span>서버 상태</div>
@@ -290,6 +294,116 @@ tr:hover td{background:rgba(255,255,255,.025);}
       </div>
     </div>
 
+
+    <!-- ── 아재개그 관리 ── -->
+    <div id="panel-content-jokes" class="panel">
+      <div class="card">
+        <div class="card-title">😂 아재개그 관리</div>
+        <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+          <input class="search-input" id="joke-search" placeholder="검색..." oninput="loadJokes()" style="flex:1;min-width:160px;">
+          <button class="btn btn-primary btn-sm" onclick="showJokeForm()">+ 새 개그 추가</button>
+        </div>
+        <div class="table-wrap">
+          <table><thead><tr><th>ID</th><th>질문</th><th>정답</th><th>카테고리</th><th>활성</th><th>관리</th></tr></thead>
+          <tbody id="joke-table"></tbody></table>
+        </div>
+        <div id="joke-pagination" style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end;"></div>
+      </div>
+      <!-- 추가/수정 폼 -->
+      <div id="joke-form-card" class="card" style="display:none;">
+        <div class="card-title">✏️ <span id="joke-form-title">새 개그 추가</span></div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <input class="search-input" id="jf-setup" placeholder="질문 (예: 왜 소는 항상 침대에서 잘까요?)" style="width:100%;">
+          <input class="search-input" id="jf-punchline" placeholder="정답 (예: 소파에 못 앉으니까요 🛋️)" style="width:100%;">
+          <input class="search-input" id="jf-category" placeholder="카테고리 (예: 동물, 음식, 일반)" style="width:100%;">
+          <input type="hidden" id="jf-id">
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-primary" onclick="saveJoke()">저장</button>
+            <button class="btn btn-ghost" onclick="document.getElementById('joke-form-card').style.display='none'">취소</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 응원 메시지 관리 ── -->
+    <div id="panel-content-cheer" class="panel">
+      <div class="card">
+        <div class="card-title">💌 응원 메시지 관리</div>
+        <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+          <select class="search-input" id="cheer-cat-filter" onchange="loadCheer()" style="width:160px;">
+            <option value="">전체 카테고리</option>
+            <option value="journey">여정</option><option value="wisdom">지혜</option>
+            <option value="fire">열정</option><option value="peace">평화</option>
+            <option value="growth">성장</option><option value="nature">자연</option><option value="sports">스포츠</option>
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="showCheerForm()">+ 새 응원 추가</button>
+        </div>
+        <div class="table-wrap">
+          <table><thead><tr><th>ID</th><th>내용</th><th>카테고리</th><th>출처</th><th>활성</th><th>관리</th></tr></thead>
+          <tbody id="cheer-table-content"></tbody></table>
+        </div>
+        <div id="cheer-pagination" style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end;"></div>
+      </div>
+      <div id="cheer-form-card" class="card" style="display:none;">
+        <div class="card-title">✏️ <span id="cheer-form-title">새 응원 추가</span></div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <textarea class="search-input" id="cf-text" placeholder="응원 메시지 내용" rows="3" style="width:100%;resize:vertical;"></textarea>
+          <select class="search-input" id="cf-cat" style="width:100%;">
+            <option value="wisdom">wisdom (지혜)</option><option value="journey">journey (여정)</option>
+            <option value="fire">fire (열정)</option><option value="peace">peace (평화)</option>
+            <option value="growth">growth (성장)</option><option value="nature">nature (자연)</option>
+            <option value="sports">sports (스포츠)</option>
+          </select>
+          <input class="search-input" id="cf-src" placeholder="출처 (예: 🇯🇵 일본 속담)" style="width:100%;">
+          <input type="hidden" id="cf-id">
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-primary" onclick="saveCheer()">저장</button>
+            <button class="btn btn-ghost" onclick="document.getElementById('cheer-form-card').style.display='none'">취소</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 음식 관리 ── -->
+    <div id="panel-content-food" class="panel">
+      <div class="card">
+        <div class="card-title">🍽️ 음식 추천 관리</div>
+        <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+          <select class="search-input" id="food-group-filter" onchange="loadFoodContent()" style="width:160px;">
+            <option value="">전체 나이대</option>
+            <option value="teen">10대</option><option value="twenty">20대</option>
+            <option value="thirty">30대</option><option value="forty">40대</option>
+            <option value="fifty_plus">50대+</option>
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="showFoodForm()">+ 음식 추가</button>
+        </div>
+        <div class="table-wrap">
+          <table><thead><tr><th>ID</th><th>이모지</th><th>음식명</th><th>나이대</th><th>설명</th><th>활성</th><th>관리</th></tr></thead>
+          <tbody id="food-content-table"></tbody></table>
+        </div>
+        <div id="food-content-pagination" style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end;"></div>
+      </div>
+      <div id="food-form-card" class="card" style="display:none;">
+        <div class="card-title">✏️ <span id="food-form-title">음식 추가</span></div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;gap:8px;">
+            <input class="search-input" id="ff-emoji" placeholder="이모지 🍜" style="width:80px;">
+            <input class="search-input" id="ff-name" placeholder="음식 이름" style="flex:1;">
+          </div>
+          <select class="search-input" id="ff-group" style="width:100%;">
+            <option value="teen">10대</option><option value="twenty">20대</option>
+            <option value="thirty">30대</option><option value="forty">40대</option><option value="fifty_plus">50대+</option>
+          </select>
+          <input class="search-input" id="ff-desc" placeholder="설명" style="width:100%;">
+          <input type="hidden" id="ff-id">
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-primary" onclick="saveFood()">저장</button>
+            <button class="btn btn-ghost" onclick="document.getElementById('food-form-card').style.display='none'">취소</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div><!-- /content -->
 </div><!-- /main -->
 
@@ -393,7 +507,7 @@ function updateTime() {
 // ══════════════════════════════════════════
 // ── 네비게이션 ──
 // ══════════════════════════════════════════
-const PANEL_NAMES = { dashboard:'대시보드', visitors:'방문자 관리', users:'사용자 관리', 'fortune-logs':'사주 조회 로그', settings:'설정', server:'서버 상태' };
+const PANEL_NAMES = { dashboard:'대시보드', visitors:'방문자 관리', users:'사용자 관리', 'fortune-logs':'사주 조회 로그', settings:'설정', server:'서버 상태', 'content-jokes':'아재개그 관리', 'content-cheer':'응원 메시지 관리', 'content-food':'음식 추천 관리' };
 function goto(page) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -408,6 +522,9 @@ function goto(page) {
   else if (page === 'fortune-logs') loadFortuneLogs();
   else if (page === 'settings') loadSettings();
   else if (page === 'server') loadServerStatus();
+  else if (page === 'content-jokes') loadJokes();
+  else if (page === 'content-cheer') loadCheer();
+  else if (page === 'content-food') loadFoodContent();
   if (window.innerWidth <= 768) toggleSidebar();
 }
 function refreshPage() {
@@ -684,6 +801,210 @@ async function loadServerStatus() {
       ['CPU', `${s.cpuCount}코어`],
     ].map(([k,v]) => `<div style="background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;padding:10px 14px;"><div style="font-size:10px;color:var(--text-dim);margin-bottom:2px;">${k}</div><div style="font-weight:600;">${v}</div></div>`).join('');
   } catch(e) { toast('서버 정보 로드 실패: ' + e.message, 'error'); }
+}
+
+
+// ══════════════════════════════════════════
+// ── 컨텐츠 관리 (아재개그 / 응원 / 음식) ──
+// ══════════════════════════════════════════
+
+// ── 공통 컨텐츠 API ──
+async function contentApi(path, opts={}) {
+  const res = await fetch(BASE_URL + path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', 'x-admin-token': TOKEN, ...(opts.headers||{}) },
+    signal: AbortSignal.timeout(8000),
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || 'API 오류');
+  return data;
+}
+
+function toggleBadge(active) {
+  return active ? '<span class="badge badge-green">활성</span>' : '<span class="badge badge-red">비활성</span>';
+}
+
+// ── 아재개그 ──
+async function loadJokes(offset=0) {
+  try {
+    const search = document.getElementById('joke-search')?.value || '';
+    const url = `/api/admin/content/jokes?limit=20&offset=${offset}${search?'&search='+encodeURIComponent(search):''}`;
+    const data = await contentApi(url);
+    document.getElementById('joke-table').innerHTML = (data.rows||[]).map(j => `<tr>
+      <td style="font-size:11px;color:var(--text-dim);">${j.id}</td>
+      <td style="max-width:200px;font-size:12px;">${j.setup}</td>
+      <td style="max-width:180px;font-size:12px;color:var(--gold-l);">${j.punchline}</td>
+      <td><span class="badge badge-blue">${j.category||'일반'}</span></td>
+      <td>${toggleBadge(j.active)}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-ghost btn-sm" onclick="editJoke(${j.id},'${j.setup.replace(/'/g,"\'")}','${j.punchline.replace(/'/g,"\'")}','${j.category||'일반'}')">수정</button>
+        <button class="btn btn-ghost btn-sm" onclick="toggleContent('jokes',${j.id},${j.active?0:1})">${j.active?'비활성화':'활성화'}</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteContent('jokes',${j.id})">삭제</button>
+      </td>
+    </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text-dim);padding:20px;">데이터 없음</td></tr>';
+    document.getElementById('joke-pagination').innerHTML = pagination(data.total||0, offset, 'loadJokes');
+  } catch(e) { toast('로드 실패: '+e.message, 'error'); }
+}
+
+function showJokeForm(id='',setup='',punchline='',category='일반') {
+  document.getElementById('joke-form-card').style.display='block';
+  document.getElementById('joke-form-title').textContent = id ? '개그 수정' : '새 개그 추가';
+  document.getElementById('jf-id').value = id;
+  document.getElementById('jf-setup').value = setup;
+  document.getElementById('jf-punchline').value = punchline;
+  document.getElementById('jf-category').value = category;
+  document.getElementById('joke-form-card').scrollIntoView({behavior:'smooth'});
+}
+
+function editJoke(id, setup, punchline, category) { showJokeForm(id, setup, punchline, category); }
+
+async function saveJoke() {
+  const id = document.getElementById('jf-id').value;
+  const body = {
+    setup: document.getElementById('jf-setup').value.trim(),
+    punchline: document.getElementById('jf-punchline').value.trim(),
+    category: document.getElementById('jf-category').value.trim() || '일반',
+  };
+  if (!body.setup || !body.punchline) { toast('질문과 정답을 입력해주세요', 'error'); return; }
+  try {
+    if (id) await contentApi(`/api/admin/content/jokes/${id}`, { method:'PUT', body:JSON.stringify(body) });
+    else     await contentApi('/api/admin/content/jokes', { method:'POST', body:JSON.stringify(body) });
+    toast(id ? '수정 완료 ✅' : '추가 완료 ✅');
+    document.getElementById('joke-form-card').style.display='none';
+    loadJokes();
+  } catch(e) { toast('저장 실패: '+e.message, 'error'); }
+}
+
+// ── 응원 메시지 ──
+async function loadCheer(offset=0) {
+  try {
+    const cat = document.getElementById('cheer-cat-filter')?.value || '';
+    const url = `/api/admin/content/cheer?limit=20&offset=${offset}${cat?'&category='+cat:''}`;
+    const data = await contentApi(url);
+    document.getElementById('cheer-table-content').innerHTML = (data.rows||[]).map(c => `<tr>
+      <td style="font-size:11px;color:var(--text-dim);">${c.id}</td>
+      <td style="max-width:300px;font-size:12px;line-height:1.5;">${c.text}</td>
+      <td><span class="badge badge-blue">${c.category}</span></td>
+      <td style="font-size:11px;color:var(--text-dim);">${c.source||''}</td>
+      <td>${toggleBadge(c.active)}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-ghost btn-sm" onclick="editCheer(${c.id})">수정</button>
+        <button class="btn btn-ghost btn-sm" onclick="toggleContent('cheer',${c.id},${c.active?0:1})">${c.active?'비활':'활성'}</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteContent('cheer',${c.id})">삭제</button>
+      </td>
+    </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text-dim);padding:20px;">데이터 없음</td></tr>';
+    document.getElementById('cheer-pagination').innerHTML = pagination(data.total||0, offset, 'loadCheer');
+    // 수정용 데이터 캐시
+    window._cheerCache = data.rows||[];
+  } catch(e) { toast('로드 실패: '+e.message, 'error'); }
+}
+
+function showCheerForm() {
+  document.getElementById('cheer-form-card').style.display='block';
+  document.getElementById('cheer-form-title').textContent='새 응원 추가';
+  document.getElementById('cf-id').value='';
+  document.getElementById('cf-text').value='';
+  document.getElementById('cf-src').value='';
+}
+function editCheer(id) {
+  const item = (window._cheerCache||[]).find(c=>c.id===id);
+  if (!item) return;
+  document.getElementById('cheer-form-card').style.display='block';
+  document.getElementById('cheer-form-title').textContent='응원 수정';
+  document.getElementById('cf-id').value=id;
+  document.getElementById('cf-text').value=item.text;
+  document.getElementById('cf-cat').value=item.category;
+  document.getElementById('cf-src').value=item.source||'';
+  document.getElementById('cheer-form-card').scrollIntoView({behavior:'smooth'});
+}
+async function saveCheer() {
+  const id = document.getElementById('cf-id').value;
+  const body = { text: document.getElementById('cf-text').value.trim(), category: document.getElementById('cf-cat').value, source: document.getElementById('cf-src').value.trim() };
+  if (!body.text) { toast('내용을 입력해주세요', 'error'); return; }
+  try {
+    if (id) await contentApi(`/api/admin/content/cheer/${id}`, { method:'PUT', body:JSON.stringify(body) });
+    else     await contentApi('/api/admin/content/cheer', { method:'POST', body:JSON.stringify(body) });
+    toast(id ? '수정 완료 ✅' : '추가 완료 ✅');
+    document.getElementById('cheer-form-card').style.display='none';
+    loadCheer();
+  } catch(e) { toast('저장 실패: '+e.message, 'error'); }
+}
+
+// ── 음식 ──
+async function loadFoodContent(offset=0) {
+  try {
+    const grp = document.getElementById('food-group-filter')?.value || '';
+    const url = `/api/admin/content/food?limit=30&offset=${offset}${grp?'&age_group='+grp:''}`;
+    const data = await contentApi(url);
+    const GRP_LABELS = {teen:'10대',twenty:'20대',thirty:'30대',forty:'40대',fifty_plus:'50대+'};
+    document.getElementById('food-content-table').innerHTML = (data.rows||[]).map(f => `<tr>
+      <td style="font-size:11px;color:var(--text-dim);">${f.id}</td>
+      <td style="font-size:22px;">${f.emoji}</td>
+      <td style="font-weight:600;color:var(--gold-l);">${f.name}</td>
+      <td><span class="badge badge-blue">${GRP_LABELS[f.age_group]||f.age_group}</span></td>
+      <td style="font-size:12px;color:var(--text-dim);max-width:200px;">${f.desc}</td>
+      <td>${toggleBadge(f.active)}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-ghost btn-sm" onclick="editFood(${f.id},'${f.emoji}','${f.name.replace(/'/g,"\'")}','${f.age_group}','${(f.desc||'').replace(/'/g,"\'")}')">수정</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteContent('food',${f.id})">삭제</button>
+      </td>
+    </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text-dim);padding:20px;">데이터 없음</td></tr>';
+    document.getElementById('food-content-pagination').innerHTML = pagination(data.total||0, offset, 'loadFoodContent');
+  } catch(e) { toast('로드 실패: '+e.message, 'error'); }
+}
+
+function showFoodForm() {
+  document.getElementById('food-form-card').style.display='block';
+  document.getElementById('food-form-title').textContent='음식 추가';
+  document.getElementById('ff-id').value='';
+  document.getElementById('ff-emoji').value='';
+  document.getElementById('ff-name').value='';
+  document.getElementById('ff-desc').value='';
+}
+function editFood(id,emoji,name,grp,desc) {
+  document.getElementById('food-form-card').style.display='block';
+  document.getElementById('food-form-title').textContent='음식 수정';
+  document.getElementById('ff-id').value=id;
+  document.getElementById('ff-emoji').value=emoji;
+  document.getElementById('ff-name').value=name;
+  document.getElementById('ff-group').value=grp;
+  document.getElementById('ff-desc').value=desc;
+  document.getElementById('food-form-card').scrollIntoView({behavior:'smooth'});
+}
+async function saveFood() {
+  const id = document.getElementById('ff-id').value;
+  const body = { emoji:document.getElementById('ff-emoji').value.trim(), name:document.getElementById('ff-name').value.trim(), age_group:document.getElementById('ff-group').value, desc:document.getElementById('ff-desc').value.trim() };
+  if (!body.name) { toast('음식 이름을 입력해주세요', 'error'); return; }
+  try {
+    if (id) await contentApi(`/api/admin/content/food/${id}`, { method:'PUT', body:JSON.stringify(body) });
+    else     await contentApi('/api/admin/content/food', { method:'POST', body:JSON.stringify(body) });
+    toast(id ? '수정 완료 ✅' : '추가 완료 ✅');
+    document.getElementById('food-form-card').style.display='none';
+    loadFoodContent();
+  } catch(e) { toast('저장 실패: '+e.message, 'error'); }
+}
+
+// ── 공통: 활성화/비활성화 토글 ──
+async function toggleContent(type, id, active) {
+  try {
+    await contentApi(`/api/admin/content/${type}/${id}`, { method:'PUT', body:JSON.stringify({active}) });
+    toast(active ? '활성화 완료' : '비활성화 완료');
+    if (type==='jokes') loadJokes();
+    else if (type==='cheer') loadCheer();
+    else loadFoodContent();
+  } catch(e) { toast('변경 실패: '+e.message, 'error'); }
+}
+
+// ── 공통: 삭제 ──
+function deleteContent(type, id) {
+  const labels = {jokes:'아재개그', cheer:'응원 메시지', food:'음식'};
+  confirmAction(`⚠️ ${labels[type]} 삭제`, `ID ${id}번 ${labels[type]}을 삭제합니다.`, async () => {
+    await contentApi(`/api/admin/content/${type}/${id}`, { method:'DELETE' });
+    toast('삭제 완료');
+    if (type==='jokes') loadJokes();
+    else if (type==='cheer') loadCheer();
+    else loadFoodContent();
+  });
 }
 
 // ══════════════════════════════════════════
