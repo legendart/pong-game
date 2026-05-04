@@ -62,13 +62,7 @@ export async function initVisitorCounter() {
     }
   }, 300);
 
-  // hits 배지
-  const badgeEl = document.getElementById('vc-badge');
-  const labelEl = document.getElementById('vc-badge-label');
-  if (badgeEl) {
-    badgeEl.src = 'https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Flegendart.github.io%2Fpong-game&count_bg=%23C9A84C&title_bg=%23160B2C&icon=star.svg&icon_color=%23F0D080&title=total&edge_flat=true';
-    if (labelEl) labelEl.style.display = 'inline';
-  }
+  // 외부 API 제거 - 로컬 DB 사용
 
   // 백엔드 DB 업데이트 (가능하면)
   if (HAS_BACKEND) {

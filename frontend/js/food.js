@@ -1,5 +1,6 @@
 // ── 음식 추천 모듈 ──
 import { STEM_ELEM, BRANCH_ELEM } from './saju.js';
+import { API_BASE, HAS_BACKEND } from './config.js';
 
 // ── 음식 추천 데이터 (나이대별 + 오행별) ──
 // ══════════════════════════════════════════
@@ -129,7 +130,8 @@ function getAgeGroup(birthDate) {
 
 function renderFoodRecommendation(bd, todayPillars, rand) {
   const ageGroup = getAgeGroup(bd);
-  const db = FOOD_DB[ageGroup];
+  const foodData = getFoodData();
+  const db = foodData[ageGroup] || FOOD_DB[ageGroup];
   
   // 오늘 오행 중 가장 강한 것
   const elems = elemCount(todayPillars);
@@ -175,8 +177,48 @@ function renderFoodRecommendation(bd, todayPillars, rand) {
     `💡 ${tips[Math.floor(rand()*tips.length)]}`;
 }
 
+let FOOD_CACHE = null;
+const AGE_GROUP_LABELS = {
+  teen:'10대 🧑‍🎤',
+  twenty:'20대 🧑',
+  thirty:'30대 🧑‍💼',
+  forty:'40대 🧑‍👧',
+  fifty_plus:'50대 이상 🧓',
+};
+
+async function initFoodData() {
+  if (!HAS_BACKEND) return;
+  try {
+    const res = await fetch(`${API_BASE}/api/content/food`);
+    if (!res.ok) throw new Error('Failed to load food data');
+    const json = await res.json();
+    if (Array.isArray(json.data) && json.data.length) FOOD_CACHE = json.data;
+  } catch (e) {
+    console.warn('Food content load failed:', e);
+  }
+}
+
+function normalizeFoodRows(rows) {
+  return rows.reduce((acc, item) => {
+    const ageGroup = item.age_group || 'teen';
+    if (!acc[ageGroup]) {
+      acc[ageGroup] = { label: AGE_GROUP_LABELS[ageGroup] || ageGroup, base: [], elem: {} };
+    }
+    acc[ageGroup].base.push({ name: item.name, emoji: item.emoji || '🍽️', desc: item.desc || '' });
+    if (item.elem_type) {
+      acc[ageGroup].elem[item.elem_type] = acc[ageGroup].elem[item.elem_type] || item.elem_type;
+    }
+    return acc;
+  }, {});
+}
+
+function getFoodData() {
+  if (!FOOD_CACHE) return FOOD_DB;
+  const normalized = normalizeFoodRows(FOOD_CACHE);
+  return { ...FOOD_DB, ...normalized };
+}
 
 // ══════════════════════════════════════════
 // ── 오늘의 유머 데이터 ──
 
-export { FOOD_DB, ELEM_FOOD_REASON, ELEM_BONUS_FOOD, getAgeGroup, renderFoodRecommendation };
+export { FOOD_DB, ELEM_FOOD_REASON, ELEM_BONUS_FOOD, getAgeGroup, renderFoodRecommendation, initFoodData };

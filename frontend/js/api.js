@@ -41,6 +41,20 @@ export async function getVisitorStats() {
   return apiFetch('/api/visitors/stats');
 }
 
+// ── 컨텐츠 API ──
+export async function fetchZodiacContent() {
+  return apiFetch('/api/content/zodiac');
+}
+export async function fetchCheerContent() {
+  return apiFetch('/api/content/cheer');
+}
+export async function fetchFoodContent() {
+  return apiFetch('/api/content/food');
+}
+export async function fetchHumorContent() {
+  return apiFetch('/api/content/humor');
+}
+
 // ── 사용자 프로필 API ──
 export async function getUser(deviceId) {
   return apiFetch(`/api/users/${encodeURIComponent(deviceId)}`);

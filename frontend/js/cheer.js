@@ -1,3 +1,5 @@
+import { API_BASE, HAS_BACKEND } from './config.js';
+
 // ── 전 세계 응원 메시지 시스템 ──
 
 // ── 응원 메시지 풀 ──
@@ -15,6 +17,20 @@ const IMG_SEEDS = {
   peace:   ['ocean','beach','pebble','sand','breath','still','fog','moon','star','sky','cloud2','soft','gentle','quiet','calm','rest','sleep','dream','float','glow'],
   fire:    ['flame','spark','ember','torch','bonfire','forge','fuel','heat','blaze','ignite','glow2','shine','bright','bold','energy','pulse','power','surge','drive','passion'],
 };
+
+let CHEER_CACHE = null;
+
+async function initCheerData() {
+  if (!HAS_BACKEND) return;
+  try {
+    const res = await fetch(`${API_BASE}/api/content/cheer`);
+    if (!res.ok) throw new Error('Failed to load cheer data');
+    const json = await res.json();
+    if (Array.isArray(json.data) && json.data.length) CHEER_CACHE = json.data;
+  } catch (e) {
+    console.warn('Cheer data load failed:', e);
+  }
+}
 
 // 전 세계 명언 + 응원 데이터 (카테고리별)
 const CHEER_DATA = [
@@ -192,10 +208,10 @@ const CTEMPLATES = [
 function pick(r, arr) { return arr[Math.floor(r() * arr.length)]; }
 
 function getCheerMsg(bd, seed) {
-  // ★ 핵심 수정: Math.random() 으로 매번 완전히 다른 시드 생성
-  let s = (Math.floor(Math.random() * 4294967295)) >>> 0;
+  const items = CHEER_CACHE || CHEER_DATA;
+  let s = (seed && Number.isFinite(seed)) ? seed >>> 0 : (Math.floor(Math.random() * 4294967295)) >>> 0;
   const r = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 0xffffffff; };
-  const item = CHEER_DATA[Math.floor(r() * CHEER_DATA.length)];
+  const item = items[Math.floor(r() * items.length)] || CHEER_DATA[0];
   const tmpl = CTEMPLATES[Math.floor(r() * CTEMPLATES.length)];
   return tmpl(item, r);
 }
@@ -208,4 +224,4 @@ function getCheerMsg(bd, seed) {
 // ══════════════════════════════════════════
 // ── 2. 유틸 함수 ──
 
-export { CHEER_SOURCES, CTEMPLATES, IMG_SEEDS, getCheerMsg, getCheerImage };
+export { CTEMPLATES, IMG_SEEDS, getCheerMsg, getCheerImage, initCheerData };

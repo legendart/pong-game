@@ -3,11 +3,11 @@ import { buildSaju, todaySaju, elemCount, dayPillar, getSipsin, checkHap, checkC
          STEMS, BRANCHES, STEM_KR, BRANCH_KR, ANIMALS, ANIMAL_KR,
          STEM_ELEM, BRANCH_ELEM, ELEM_COLOR, ELEM_EMOJI,
          SIPSIN_NAMES, SIPSIN_MEANING, DAYS_KR } from './saju.js';
-import { ZODIAC, ZF, getZodiac } from './zodiac.js';
+import { ZODIAC, ZF, getZodiac, loadZodiacData } from './zodiac.js';
 import { drawChart, renderLabels, openDetailModal, closeDetail } from './chart.js';
-import { getCheerMsg } from './cheer.js';
-import { getAgeGroup, renderFoodRecommendation } from './food.js';
-import { renderHumor, revealPunchline, nextHumor } from './humor.js';
+import { getCheerMsg, initCheerData } from './cheer.js';
+import { getAgeGroup, renderFoodRecommendation, initFoodData } from './food.js';
+import { renderHumor, revealPunchline, nextHumor, initHumorData } from './humor.js';
 import { initVisitorCounter } from './visitor.js';
 import { loadHistory, switchHistoryTab as switchTab } from './history.js';
 import { HAS_BACKEND } from './config.js';
@@ -243,7 +243,7 @@ function renderZWeekCards(zodiac) {
 // ══════════════════════════════════════════
 // ── 7. 메인 render ──
 // ══════════════════════════════════════════
-function render(user) {
+async function render(user) {
   const {name,birth,hour}=user;
   const bd=new Date(birth), hb=parseInt(hour);
   const now=new Date();
@@ -252,7 +252,7 @@ function render(user) {
   const fortune=makeFortune(today,rand);
   const elems=elemCount(today);
   const maxE=Math.max(...Object.values(elems));
-  const zodiac=getZodiac(bd);
+  const zodiac=await getZodiac(bd);
 
   // 날짜
   document.getElementById('date-badge').innerHTML=`📅 ${now.getFullYear()}년 ${now.getMonth()+1}월 ${now.getDate()}일 (${DAYS_KR[now.getDay()]}요일)`;
@@ -560,36 +560,16 @@ async function fetchHistory() {
   }
 }
 
-function saveAndRender() {
-  const name=(document.getElementById('i-name').value||'').trim()||'이경민';
-  const birth=document.getElementById('i-birth').value;
-  const hour=document.getElementById('i-hour').value;
-  if(!birth){alert('생년월일을 입력해주세요 🙏');return;}
-  const user={name,birth,hour};
-  try{localStorage.setItem('saju_user',JSON.stringify(user));}catch(e){}
-  render(user);
-}
-function reset() {
-  try{localStorage.removeItem('saju_user');}catch(e){}
-  document.getElementById('modal').classList.remove('hide');
-  document.getElementById('app').style.display='none';
-}
-
-// ── 시작 ──
-
-// ══════════════════════════════════════════
-
-// ── 시작 ──
 const DEFAULT_USER={name:'이경민',birth:'2009-01-19',hour:'8'};
 
-function saveAndRender() {
+async function saveAndRender() {
   const name=(document.getElementById('i-name').value||'').trim()||'이경민';
   const birth=document.getElementById('i-birth').value;
   const hour=document.getElementById('i-hour').value;
   if(!birth){alert('생년월일을 입력해주세요 🙏');return;}
   const user={name,birth,hour};
   try{localStorage.setItem('saju_user',JSON.stringify(user));}catch(e){}
-  render(user);
+  await render(user);
 }
 function reset() {
   try{localStorage.removeItem('saju_user');}catch(e){}
@@ -599,7 +579,13 @@ function reset() {
 window.saveAndRender = saveAndRender;
 window.reset = reset;
 
-(function(){
-  try{const s=localStorage.getItem('saju_user');if(s){render(JSON.parse(s));return;}}catch(e){}
-  render(DEFAULT_USER);
+(async function(){
+  if (HAS_BACKEND) {
+    await Promise.all([initCheerData(), initFoodData(), initHumorData(), loadZodiacData()]);
+  }
+  try{
+    const s=localStorage.getItem('saju_user');
+    if(s){await render(JSON.parse(s));return;}
+  }catch(e){}
+  await render(DEFAULT_USER);
 })();
