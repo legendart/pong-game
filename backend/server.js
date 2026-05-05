@@ -55,7 +55,10 @@ app.use((req, _res, next) => {
   next();
 });
 
-// ── 정적 파일 (admin.html 서빙) ──
+// ── 정적 파일 서빙 ──
+app.use(express.static(FRONTEND));
+app.use('/frontend', express.static(FRONTEND));
+app.get('/', (_req, res) => res.sendFile(join(FRONTEND, 'index.html')));
 app.use('/admin', express.static(FRONTEND));
 app.get('/admin', (_req, res) => res.sendFile(join(FRONTEND, 'admin.html')));
 app.get('/admin/', (_req, res) => res.sendFile(join(FRONTEND, 'admin.html')));

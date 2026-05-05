@@ -1,5 +1,5 @@
 // ── 음식 추천 모듈 ──
-import { STEM_ELEM, BRANCH_ELEM } from './saju.js';
+import { STEM_ELEM, BRANCH_ELEM, elemCount } from './saju.js';
 import { API_BASE, HAS_BACKEND } from './config.js';
 
 // ── 음식 추천 데이터 (나이대별 + 오행별) ──

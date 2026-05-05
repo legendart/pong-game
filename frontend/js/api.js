@@ -1,4 +1,5 @@
 import { API_BASE, HAS_BACKEND } from './config.js';
+export { HAS_BACKEND };
 
 const TIMEOUT_MS = 8000;
 

@@ -1,22 +1,100 @@
 // ── main.js - 앱 진입점 ──
-import { buildSaju, todaySaju, elemCount, dayPillar, getSipsin, checkHap, checkChung,
-         STEMS, BRANCHES, STEM_KR, BRANCH_KR, ANIMALS, ANIMAL_KR,
+import { STEMS, BRANCHES, STEM_KR, BRANCH_KR, ANIMALS, ANIMAL_KR,
          STEM_ELEM, BRANCH_ELEM, ELEM_COLOR, ELEM_EMOJI,
-         SIPSIN_NAMES, SIPSIN_MEANING, DAYS_KR } from './saju.js';
-import { ZODIAC, ZF, getZodiac, loadZodiacData } from './zodiac.js';
+         SIPSIN_NAMES, SIPSIN_MEANING, DAYS_KR,
+         JEOLGI, JEOLGI_MONTHS, CHUNG_BRANCH, HAP_BRANCH,
+         JIJANGAN_MAP, SIPSIN_FORTUNE } from './saju.js';
+import { ZODIAC, ZF, Z_DETAIL_MSGS, Z_TIPS, WEEK_MSGS, loadZodiacContent } from './zodiac.js';
 import { drawChart, renderLabels, openDetailModal, closeDetail } from './chart.js';
 import { getCheerMsg, initCheerData } from './cheer.js';
 import { getAgeGroup, renderFoodRecommendation, initFoodData } from './food.js';
 import { renderHumor, revealPunchline, nextHumor, initHumorData } from './humor.js';
 import { initVisitorCounter } from './visitor.js';
-import { loadHistory, switchHistoryTab as switchTab } from './history.js';
 import { HAS_BACKEND } from './config.js';
+
+let _sajuWeekData = [];
+let _zWeekData = [];
+let _currentTab = 'world';
+
+// ── 사주 주간 카드 클릭 → 상세 모달 ──
+function openSajuDetail(idx) {
+  const d = _sajuWeekData[idx]; if (!d) return;
+  const { dp, sipsin, hasHap, hasChung, isToday } = d;
+  const anim = ANIMAL_KR[dp.b], animEmoji = ANIMALS[dp.b];
+  const hapMsg = hasHap
+    ? '<br><span style="color:#7edd9a">⚡ 일지합 — 귀인·협력 에너지 상승</span>'
+    : hasChung
+      ? '<br><span style="color:#e05c5c">🔥 일지충 — 변화·이동·긴장 주의</span>'
+      : '';
+  const dateLabel = isToday
+    ? `오늘 (${DAYS_KR[d.date.getDay()]})`
+    : `${d.date.getMonth()+1}월 ${d.date.getDate()}일 (${DAYS_KR[d.date.getDay()]})`;
+  const bar = (v, color, label) =>
+    `<div style="margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+        <span style="font-size:11px;color:var(--gold);">${label}</span>
+        <span style="font-size:11px;color:${color};">${v}/5</span>
+      </div>
+      <div style="height:8px;background:rgba(255,255,255,.07);border-radius:99px;overflow:hidden;">
+        <div style="height:100%;width:${(v/5)*100}%;background:${color};border-radius:99px;"></div>
+      </div>
+    </div>`;
+  const barsHtml = bar(d.overall,'#c9a84c','종합운') + bar(d.love,'#7eb8f7','애정운') + bar(d.money,'#7edd9a','재물운') +
+    `<div style="background:rgba(255,255,255,.04);border-radius:10px;padding:10px 12px;margin-top:4px;">
+      <div style="font-size:11px;color:var(--gold);margin-bottom:4px;">📐 십신 분석</div>
+      <div style="font-size:13px;color:var(--gold-l);font-weight:600;">${sipsin}</div>
+      <div style="font-size:11px;color:var(--text-dim);margin-top:2px;">${SIPSIN_MEANING[sipsin]||''}</div>
+      <div style="font-size:11px;color:var(--text-dim);margin-top:4px;">지장간: ${JIJANGAN_MAP[dp.b]}</div>
+    </div>`;
+  openDetailModal(
+    d.date, animEmoji,
+    `${dateLabel}<br><span style="font-size:13px;font-family:'Noto Serif KR',serif;color:var(--gold-l);">${STEMS[dp.s]}${BRANCHES[dp.b]}일</span>`,
+    `${animEmoji} ${anim}의 날 · ${STEM_ELEM[dp.s]} ${ELEM_EMOJI[STEM_ELEM[dp.s]]}${hapMsg}`,
+    barsHtml,
+    SIPSIN_FORTUNE[sipsin] || '오늘 하루도 좋은 기운이 흐릅니다.',
+    [
+      { e: ELEM_EMOJI[STEM_ELEM[dp.s]], l: '천간 오행', v: STEM_ELEM[dp.s] },
+      { e: ELEM_EMOJI[BRANCH_ELEM[dp.b]], l: '지지 오행', v: BRANCH_ELEM[dp.b] },
+      { e: hasHap ? '💚' : hasChung ? '🔴' : '⚪', l: hasHap ? '일지합' : hasChung ? '일지충' : '평온', v: hasHap ? '합(吉)' : hasChung ? '충(注意)' : '안정' },
+    ]
+  );
+}
+
+// ── 별자리 주간 카드 클릭 → 상세 모달 ──
+function openZDetail(idx) {
+  const d = _zWeekData[idx]; if (!d) return;
+  const z = d.zodiac;
+  const dateLabel = d.isToday
+    ? `오늘 (${DAYS_KR[d.date.getDay()]})`
+    : `${d.date.getMonth()+1}월 ${d.date.getDate()}일 (${DAYS_KR[d.date.getDay()]})`;
+  const bar = (v, color, label) =>
+    `<div style="margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+        <span style="font-size:11px;color:var(--gold);">${label}</span>
+        <span style="font-size:11px;color:${color};">${v}/5</span>
+      </div>
+      <div style="height:8px;background:rgba(255,255,255,.07);border-radius:99px;overflow:hidden;">
+        <div style="height:100%;width:${(v/5)*100}%;background:${color};border-radius:99px;"></div>
+      </div>
+    </div>`;
+  const barsHtml = bar(d.overall,'#c9a84c','전체운') + bar(d.social,'#b57bee','대인운') + bar(d.career,'#7eb8f7','직업운');
+  const si = d.tipIdx % Z_TIPS.length;
+  const tips = [Z_TIPS[si], Z_TIPS[(si+1)%Z_TIPS.length], Z_TIPS[(si+2)%Z_TIPS.length]].filter(Boolean);
+  openDetailModal(
+    d.date, z.symbol,
+    `${dateLabel}<br><span style="font-size:13px;color:var(--gold-l);">${z.name} ${z.symbol}</span>`,
+    `원소: ${z.elem} · 지배성: ${z.ruling} · ${z.keyword}`,
+    barsHtml, d.msg, tips
+  );
+}
 
 // 전역 노출 (HTML onclick 속성에서 사용)
 window.closeDetail = closeDetail;
 window.revealPunchline = revealPunchline;
 window.nextHumor = nextHumor;
 window.switchTab = switchTab;
+window.openSajuDetail = openSajuDetail;
+window.openZDetail = openZDetail;
 
 // ── 2. 유틸 함수 ──
 // ══════════════════════════════════════════
@@ -368,8 +446,6 @@ async function render(user) {
 // ══════════════════════════════════════════
 // ── 8. 오늘의 역사 ──
 // ══════════════════════════════════════════
-let _currentTab = 'world';
-
 function switchTab(tab) {
   _currentTab = tab;
   const wBtn=document.getElementById('tab-world');
@@ -560,6 +636,7 @@ async function fetchHistory() {
   }
 }
 
+// ── 시작 ──
 const DEFAULT_USER={name:'이경민',birth:'2009-01-19',hour:'8'};
 
 async function saveAndRender() {
@@ -581,7 +658,8 @@ window.reset = reset;
 
 (async function(){
   if (HAS_BACKEND) {
-    await Promise.all([initCheerData(), initFoodData(), initHumorData(), loadZodiacData()]);
+    await Promise.all([initCheerData(), initFoodData(), initHumorData()]);
+    loadZodiacContent().catch(()=>{});
   }
   try{
     const s=localStorage.getItem('saju_user');
