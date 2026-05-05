@@ -1,7 +1,6 @@
 import { createRequire } from 'module';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { promisify } from 'util';
 import express from 'express';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -60,7 +59,7 @@ await run(`ALTER TABLE visits ADD COLUMN device_id TEXT`).catch(() => {});
 
 const router = express.Router();
 
-// POST /api/visitors/hit
+// ── POST /api/visitors/hit ── 방문 기록
 router.post('/hit', async (req, res) => {
   try {
     const today = new Date().toISOString().slice(0, 10);
@@ -74,28 +73,47 @@ router.post('/hit', async (req, res) => {
                ON CONFLICT(date) DO UPDATE SET count = count + 1`, [today]);
     await run(`UPDATE total_stats SET value = value + 1 WHERE key = 'total'`);
 
-    const total   = await get(`SELECT value FROM total_stats WHERE key = 'total'`);
-    const todayRow = await get(`SELECT count FROM daily_stats WHERE date = ?`, [today]);
+    const totalRow = await get(`SELECT value FROM total_stats WHERE key='total'`);
+    const todayRow = await get(`SELECT count FROM daily_stats WHERE date=?`, [today]);
+    const visitorRow = deviceId ? await get(`SELECT total_visits, today_visits FROM visitors WHERE device_id=?`, [deviceId]) : null;
 
-    res.json({ ok: true, total: total?.value ?? 0, today: todayRow?.count ?? 0, date: today });
-  } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
-  }
+    res.json({
+      ok: true,
+      total: totalRow?.value ?? 0,
+      today: todayRow?.count ?? 0,
+      myTotal: visitorRow?.total_visits ?? 1,
+      myToday: visitorRow?.today_visits ?? 1,
+      date: today,
+    });
+  } catch(e) { res.status(500).json({ ok:false, error:e.message }); }
 });
 
-// GET /api/visitors/stats
-router.get('/stats', async (req, res) => {
+// ── GET /api/visitors/stats ── 전체 통계
+router.get('/stats', async (_req, res) => {
   try {
-    const today = new Date().toISOString().slice(0, 10);
-    const total    = await get(`SELECT value FROM total_stats WHERE key = 'total'`);
-    const todayRow = await get(`SELECT count FROM daily_stats WHERE date = ?`, [today]);
-    const weekly   = await all(`SELECT date, count FROM daily_stats ORDER BY date DESC LIMIT 7`);
-    const bestDay  = await get(`SELECT date, count FROM daily_stats ORDER BY count DESC LIMIT 1`);
-
-    res.json({ ok: true, total: total?.value ?? 0, today: todayRow?.count ?? 0, weekly, bestDay: bestDay ?? null });
-  } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
-  }
+    const today = new Date().toISOString().slice(0,10);
+    const [total, todayRow, weekly, bestDay, totalVisitors, deviceBreakdown, browserBreakdown] = await Promise.all([
+      get(`SELECT value FROM total_stats WHERE key='total'`),
+      get(`SELECT count FROM daily_stats WHERE date=?`, [today]),
+      all(`SELECT date, count FROM daily_stats ORDER BY date DESC LIMIT 7`),
+      get(`SELECT date, count FROM daily_stats ORDER BY count DESC LIMIT 1`),
+      get(`SELECT COUNT(*) as c FROM visitors`),
+      all(`SELECT device_type, COUNT(*) as c FROM visitors GROUP BY device_type ORDER BY c DESC`),
+      all(`SELECT browser, COUNT(*) as c FROM visitors GROUP BY browser ORDER BY c DESC LIMIT 5`),
+    ]);
+    res.json({ ok:true, total:total?.value??0, today:todayRow?.count??0, weekly, bestDay, totalVisitors:totalVisitors?.c??0, deviceBreakdown, browserBreakdown });
+  } catch(e) { res.status(500).json({ ok:false, error:e.message }); }
 });
 
+// ── GET /api/visitors/me/:deviceId ── 내 방문 정보
+router.get('/me/:deviceId', async (req, res) => {
+  try {
+    const v = await get(`SELECT * FROM visitors WHERE device_id=?`, [req.params.deviceId]);
+    if (!v) return res.json({ ok:true, visitor:null });
+    const logs = await all(`SELECT * FROM visit_logs WHERE device_id=? ORDER BY visited_at DESC LIMIT 10`, [req.params.deviceId]);
+    res.json({ ok:true, visitor:v, recentLogs:logs });
+  } catch(e) { res.status(500).json({ ok:false, error:e.message }); }
+});
+
+export { db };
 export default router;
