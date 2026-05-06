@@ -69,12 +69,12 @@ function getSajuMonth(y,m,d) {
     if (i===11){if(m===1&&d>=jd)return 12;}
     else{if(m===jm&&d>=jd)return i+1;}
   }
-  return m===1?12:1;
+  return (m === 1 || m === 2) ? 12 : 1;
 }
 
 export function yearPillar(y){return{s:((y-4)%10+10)%10,b:((y-4)%12+12)%12};}
 export function monthPillar(y,m,d){const sm=getSajuMonth(y,m,d),ys=yearPillar(y).s;return{s:((ys%5)*2+sm+1)%10,b:(sm+1)%12};}
-export function dayPillar(date){const diff=Math.floor((date-new Date('1900-01-31T00:00:00Z'))/86400000);return{s:((diff%10)+10)%10,b:((diff%12)+12)%12};}
+export function dayPillar(date){const kst=new Date(date.getTime()+9*3600*1000);const diff=Math.floor((kst-new Date('1900-01-31T00:00:00Z'))/86400000);return{s:((diff%10)+10)%10,b:((diff%12)+12)%12};}
 export function hourPillar(ds,h){if(h<0)return{s:-1,b:-1};const hb=Math.floor(((h+1)%24)/2);return{s:((ds%5)*2+hb)%10,b:hb};}
 
 export function buildSaju(birthDate, inputHour) {

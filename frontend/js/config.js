@@ -3,7 +3,7 @@
 // iPhone에서 접속 시 Mac의 로컬 IP를 자동 감지
 
 const DEV_BACKEND  = 'http://localhost:3000';
-const PROD_BACKEND = 'https://legendart.github.io'; // 실제 배포 시 변경
+const PROD_BACKEND = 'https://legendart.github.io'; // ⚠️ 잘못된 URL: 프론트엔드 주소가 설정되어 있음. 실제 백엔드 서버 URL로 교체 필요
 
 // GitHub Pages에서 접속 시 → 백엔드 URL 자동 결정
 // 1. localhost → 로컬 개발 서버

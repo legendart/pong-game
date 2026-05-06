@@ -170,7 +170,6 @@ function getSajuMonth(y, m, d) {
 }
 function yearPillar(y)    { return {s:((y-4)%10+10)%10, b:((y-4)%12+12)%12}; }
 function monthPillar(y,m,d){ const sm=getSajuMonth(y,m,d), ys=yearPillar(y).s; return {s:((ys%5)*2+sm+1)%10, b:(sm+1)%12}; }
-function dayPillar(date)   { const diff=Math.floor((date-new Date(1900,0,31))/86400000); return {s:((diff%10)+10)%10, b:((diff%12)+12)%12}; }
 function hourPillar(ds,h)  { const hb=Math.floor(((h+1)%24)/2); return {s:((ds%5)*2+hb)%10, b:hb}; }
 function kstToTrueSolar(h) { return Math.max(0, h - 1); } // 진태양시 간략 보정 (KST -32분 ≈ -1시간)
 function buildSaju(bd, inputHour) {
@@ -269,7 +268,7 @@ function buildZWeekData(bd) {
 // ══════════════════════════════════════════
 function renderSajuWeekCards() {
   document.getElementById('saju-week-cards').innerHTML=_sajuWeekData.map((d,i)=>{
-    const msg=WEEK_MSGS[d.level][Math.floor(Math.random()*3)];
+    const _wmsgs=WEEK_MSGS[d.level]||[];const msg=_wmsgs.length?_wmsgs[Math.floor(Math.random()*_wmsgs.length)]:'';
     const bar=v=>'█'.repeat(Math.round(v)).padEnd(5,'░');
     const isToday=d.isToday, bdr=isToday?'2px solid rgba(201,168,76,.6)':'1px solid '+({high:'rgba(201,168,76,.35)',mid:'rgba(150,150,180,.2)',low:'rgba(120,100,160,.25)'}[d.level]);
     const bg={high:'rgba(201,168,76,.15)',mid:'rgba(100,100,120,.12)',low:'rgba(80,60,120,.12)'}[d.level];
@@ -330,7 +329,7 @@ async function render(user) {
   const fortune=makeFortune(today,rand);
   const elems=elemCount(today);
   const maxE=Math.max(...Object.values(elems));
-  const zodiac=await getZodiac(bd);
+  const zodiac=getZodiac(bd);
 
   // 날짜
   document.getElementById('date-badge').innerHTML=`📅 ${now.getFullYear()}년 ${now.getMonth()+1}월 ${now.getDate()}일 (${DAYS_KR[now.getDay()]}요일)`;
@@ -512,7 +511,7 @@ async function fetchHistory() {
 
         // 배치 langlinks → 한국어 제목
         const titles=events.map(ev=>(ev.pages||[])[0]?.title||'').filter(Boolean);
-        let koTitleMap={};
+        koTitleMap={};
         if(titles.length) {
           try {
             const lr=await fetchTimeout(
