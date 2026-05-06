@@ -3,7 +3,7 @@ import { STEMS, BRANCHES, STEM_KR, BRANCH_KR, ANIMALS, ANIMAL_KR,
          STEM_ELEM, BRANCH_ELEM, ELEM_COLOR, ELEM_EMOJI,
          SIPSIN_NAMES, SIPSIN_MEANING, DAYS_KR,
          JEOLGI, JEOLGI_MONTHS, CHUNG_BRANCH, HAP_BRANCH,
-         JIJANGAN_MAP, SIPSIN_FORTUNE } from './saju.js';
+         JIJANGAN_MAP, SIPSIN_FORTUNE, dayPillar } from './saju.js';
 import { ZODIAC, ZF, Z_DETAIL_MSGS, Z_TIPS, WEEK_MSGS, loadZodiacContent } from './zodiac.js';
 import { drawChart, renderLabels, openDetailModal, closeDetail } from './chart.js';
 import { getCheerMsg, initCheerData } from './cheer.js';
