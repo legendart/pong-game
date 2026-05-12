@@ -121,16 +121,9 @@ canvas{display:block;max-width:100%;}
 .javis-nav__links a:hover{color:#fff;}
 .javis-nav__links a.active{color:#fff;font-weight:600;}
 </style>
+  <script src="https://legendart.github.io/nav.js?v=1" defer></script>
 </head>
 <body>
-<nav class="javis-nav">
-  <a class="javis-nav__home" href="https://legendart.github.io/">⬡ JAVIS</a>
-  <div class="javis-nav__links">
-    <a class="active" href="https://legendart.github.io/saju/">🔮 사주</a>
-    <a href="https://legendart.github.io/news/">📡 뉴스</a>
-    <a href="https://legendart.github.io/humor/">😂 유머</a>
-  </div>
-</nav>
 <div class="bg-stars"></div>
 
 <!-- ── 입력 모달 ── -->
@@ -1619,5 +1612,6 @@ const DEFAULT_USER={name:'이경민',birth:'2009-01-19',hour:'8'};
   render(DEFAULT_USER);
 })();
 </script>
+<script>document.addEventListener("DOMContentLoaded",function(){JavisNav.init("saju")});</script>
 </body>
 </html>
